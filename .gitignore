@@ -1,0 +1,24 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+target/
+dev-mailbox/
+*.log
+.DS_Store
+.idea/
+*.iml
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Per-machine Java and terminal paths
+.vscode/settings.json
+
+# Local presentation database and deployment metadata
+.local-data/
+.vercel/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
