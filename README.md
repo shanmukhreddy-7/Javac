@@ -4,6 +4,8 @@ A polished campus services presentation with **no OTP, no email verification, an
 
 This is explicitly a **classroom presentation**: email-only sign-in does not establish identity. Use fictional details. No passwords are requested or stored. Do not treat it as a production identity or private messaging system.
 
+**Live presentation:** https://javac-iota.vercel.app/
+
 ## Run in VS Code
 
 Requires **Node.js 24.x** with npm. Open this `javac-campus` folder in VS Code.
