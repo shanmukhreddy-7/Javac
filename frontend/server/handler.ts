@@ -8,12 +8,12 @@ import {
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
-import { CampusStore, getStore } from "./store";
-import skills from "../src/data/skills.json";
+import { CampusStore, getStore } from "./store.js";
+import skills from "../src/data/skills.json" with { type: "json" };
 import {
   presentationRegistrationSchema,
   profileSchema,
-} from "../src/services/validation";
+} from "../src/services/validation.js";
 import type { Student } from "../src/types/index";
 class HttpError extends Error {
   constructor(
