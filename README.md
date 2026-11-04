@@ -103,6 +103,8 @@ The earlier website at https://javac-iota.vercel.app/ is the presentation build 
 
 The root Dockerfile builds React and Java together. Vercel's Container runtime is a deployment option; use repository root, framework **Container**, not the earlier `frontend`/Vite settings. The Java server serves both HTML and `/api` on one origin. Use a preview first.
 
+Set the function region to **Singapore (`sin1`)**, beside this project's Neon database. The Singapore preview passed hosted API/session checks; the earlier US-region startup exceeded the startup deadline while running database migrations. Local accounts use H2 and do not automatically exist in cloud Neon storage.
+
 Required production environment:
 
 ```properties
