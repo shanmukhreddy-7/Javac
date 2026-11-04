@@ -20,6 +20,10 @@ The user confirmed that an OTP email arrived in the designated university inbox 
 - These requests exercise Java startup, Flyway/PostgreSQL, JDBC-backed sessions, CSRF, credential lookup, and SPA routing. No cloud student accounts were seeded, no email was sent by these checks, and no user passwords were accessed.
 - Runtime error/fatal log scan for this deployment returned no matching records after the smoke checks.
 
+### Browser-origin regression
+
+The user reported an unreadable response on hosted login. Replaying the POST with the browser's exact preview `Origin` reproduced HTTP 403 with plain-text `Invalid CORS request`. The baseline CLI smoke omitted `Origin`, so it did not detect this failure. The container now enables `SERVER_FORWARD_HEADERS_STRATEGY=framework` to preserve the public HTTPS host/scheme through Vercel's proxy. Two new real-HTTP tests passed: the preview-origin POST with a valid cookie/CSRF token reaches authentication (401 for an intentionally nonexistent account), and an unrelated origin remains rejected (403). Retest the deployed browser-origin request before asking the user to log in again.
+
 ## Still required before a live release
 
 - Neon Auth email signup and verification codes are enabled; Vercel supplied NEON_AUTH_BASE_URL, and the service /ok endpoint returned HTTP 200. The user confirmed actual OTP inbox delivery and account verification for the designated admin on localhost. Configure the hosted frontend origin and repeat the full flow on the cloud preview before release.

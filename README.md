@@ -105,6 +105,8 @@ The root Dockerfile builds React and Java together. Vercel's Container runtime i
 
 Set the function region to **Singapore (`sin1`)**, beside this project's Neon database. The Singapore preview passed hosted API/session checks; the earlier US-region startup exceeded the startup deadline while running database migrations. Local accounts use H2 and do not automatically exist in cloud Neon storage.
 
+The container enables Spring's forwarded-header handling so requests behind Vercel's HTTPS proxy retain their public scheme and host. This lets browser POSTs on the same preview origin pass the same-origin check while unrelated origins remain blocked. Deploy this container behind the trusted platform proxy; direct local execution keeps Spring's default header handling.
+
 Required production environment:
 
 ```properties
