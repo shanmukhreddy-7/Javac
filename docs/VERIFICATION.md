@@ -26,10 +26,14 @@ The user reported an unreadable response on hosted login. Replaying the POST wit
 
 The corrected commit `8e9b9552876b2fda717b8b3cc96fc7a36868b6e5` was deployed as `dpl_BmUccEzno3b3Z7yRAxYrUgED8xfW`. Hosted requests with the exact preview Origin passed the authentication/CSRF tests, and an unrelated Origin remained blocked. The user then reported a registration error. A focused provider request reproduced `403 INVALID_ORIGIN` from Neon Auth when Java's configured frontend origin was supplied. The administrator must add `https://javac-iota.vercel.app` to Neon Auth's trusted domains. Localhost permission alone does not authorize it. No OTP was sent by that rejected provider request, and registration remains uncommitted. Provider setup and code-delivery failures now have separate messages from invalid student codes.
 
-## Still required before a live release
+## Cloud email and login confirmed
 
-- Neon Auth email signup and verification codes are enabled; Vercel supplied NEON_AUTH_BASE_URL, and the service /ok endpoint returned HTTP 200. The user confirmed actual OTP inbox delivery and account verification for the designated admin on localhost. Configure the hosted frontend origin and repeat the full flow on the cloud preview before release.
-- The user must verify the cloud signup, emailed OTP, and password login. Local H2 accounts are separate from cloud Neon accounts. Repeat the two-account marketplace flow on the cloud, then stage and verify a production build before promotion. The previous Vercel presentation deployment is not evidence the new Java build works online.
+The administrator saved `https://javac-iota.vercel.app` in Neon Auth's trusted domains. A subsequent email-code request returned HTTP 200 with success, and the user confirmed successful cloud registration/verification/login. No password or code was shared for this verification. The release uses the same Neon database/schema as the verified preview, so cloud accounts are retained.
+
+## Release checks and remaining limits
+
+- The latest Java suite passed 29 tests, including both real-HTTP proxy-origin regression tests; frontend coverage remains 12 passing tests. Full local two-account marketplace checks are described above. A manual two-account marketplace walkthrough has not yet been repeated in cloud storage.
+- Before assigning the stable domain, verify the production build's API configuration, cookie/CSRF round trip, authentication rejection paths, and frontend routes. Then verify the stable public URL without a Vercel protection bypass.
 - Neon’s production checklist requires a custom email provider for full production use. University sender identity needs university authorization; shared Neon sender is suitable for the classroom setup subject to its limits.
 
 Local test records are named Classroom Boy/Girl and are not real university accounts. They are only verification fixtures in the development database and must not be seeded into production.

@@ -101,7 +101,7 @@ Copy `.env.example` to ignored `.env.backend` only if overriding local defaults.
 
 ## Deployment
 
-The earlier website at https://javac-iota.vercel.app/ is the presentation build until the secure Java deployment is explicitly verified and promoted. Do not assume new features are live simply because they work locally.
+The stable production address is https://javac-iota.vercel.app/ and login is https://javac-iota.vercel.app/login. The secure Java release replaces the earlier presentation build. Cloud accounts are stored in Neon; a verified cloud-preview account uses the same database when signing into the stable address. Local H2 accounts remain separate. See docs/VERIFICATION.md for release checks.
 
 The root Dockerfile builds React and Java together. Vercel's Container runtime is a deployment option; use repository root, framework **Container**, not the earlier `frontend`/Vite settings. The Java server serves both HTML and `/api` on one origin. Use a preview first.
 
