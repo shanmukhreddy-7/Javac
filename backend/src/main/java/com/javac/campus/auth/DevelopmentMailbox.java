@@ -27,11 +27,9 @@ public class DevelopmentMailbox implements EmailDelivery {
               + safeRecipient
               + "</p><h2>"
               + subject
-              + "</h2><p><a href=\""
+              + "</h2><p><strong>"
               + org.springframework.web.util.HtmlUtils.htmlEscape(link)
-              + "\">"
-              + subject
-              + "</a></p><p>Local preview only. Treat this file as a secret; delete it after your"
+              + "</strong></p><p>Local preview only. Treat this file as a secret; delete it after your"
               + " demonstration.</p></body></html>";
       Path file = folder.resolve(System.currentTimeMillis() + "-" + UUID.randomUUID() + ".html");
       Files.writeString(file, html, StandardOpenOption.CREATE_NEW);

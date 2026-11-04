@@ -24,6 +24,8 @@ public class AuthServiceImpl implements AuthService {
   private final List<String> domains;
   private final String frontend;
   private final String dummyHash;
+  private final OtpService otp;
+  private final String verificationMode, adminEmail;
 
   public AuthServiceImpl(
       UserRepository users,
@@ -33,7 +35,13 @@ public class AuthServiceImpl implements AuthService {
       PasswordEncoder encoder,
       EmailDelivery email,
       @Value("${app.approved-domains}") String domains,
-      @Value("${app.frontend-url}") String frontend) {
+      @Value("${app.frontend-url}") String frontend,
+      OtpService otp,
+      @Value("${app.verification-mode:otp}") String verificationMode,
+      @Value("${app.admin-email}") String adminEmail) {
+    this.otp = otp;
+    this.verificationMode = verificationMode;
+    this.adminEmail = adminEmail;
     this.users = users;
     this.profiles = profiles;
     this.verification = verification;
@@ -80,7 +88,8 @@ public class AuthServiceImpl implements AuthService {
             r.registrationNumber().toUpperCase(Locale.ROOT),
             r.department().trim(),
             r.studyYear()));
-    issueVerification(user);
+    if (verificationMode.equals("link")) issueVerification(user);
+    else otp.issue(address, "VERIFY", r.fullName());
   }
 
   public StudentPrincipal login(Login r) {
@@ -92,6 +101,7 @@ public class AuthServiceImpl implements AuthService {
       throw new ApiException(403, "Verify your university email before logging in.");
     if (!"ACTIVE".equals(user.getAccountStatus()))
       throw new ApiException(403, "Your account is not active. Contact the administrator.");
+    user.setRole(user.getEmail().equalsIgnoreCase(adminEmail) ? "ADMIN" : "STUDENT");
     return new StudentPrincipal(user.getId(), user.getEmail(), user.getCredentialVersion());
   }
 
@@ -127,13 +137,18 @@ public class AuthServiceImpl implements AuthService {
     // Generic response also covers cooldown to avoid revealing account existence.
     if (last.isPresent() && last.get().getCreatedAt().isAfter(Instant.now().minusSeconds(60)))
       return;
-    issueVerification(user);
+    if (verificationMode.equals("link")) issueVerification(user);
+    else otp.issue(user.getEmail(), "VERIFY", "JAVAC student");
   }
 
   public void forgotPassword(String address) {
     var user = users.lockByEmail(normalize(address)).orElse(null);
     if (user == null || !user.isEmailVerified() || !"ACTIVE".equals(user.getAccountStatus()))
       return;
+    if (!verificationMode.equals("link")) {
+      otp.issue(user.getEmail(), "RESET", "JAVAC student");
+      return;
+    }
     var last = resets.findFirstByUserIdOrderByCreatedAtDesc(user.getId());
     if (last.isPresent() && last.get().getCreatedAt().isAfter(Instant.now().minusSeconds(60)))
       return;
@@ -156,6 +171,29 @@ public class AuthServiceImpl implements AuthService {
       throw new ApiException(403, "This account is not active.");
     token.consume();
     user.changePassword(encoder.encode(r.password()));
+  }
+
+  public void verifyOtp(String address, String code) {
+    var user =
+        users
+            .lockByEmail(normalize(address))
+            .orElseThrow(() -> new ApiException(400, "Account is not awaiting verification."));
+    if (!"PENDING".equals(user.getAccountStatus()))
+      throw new ApiException(400, "Account is not awaiting verification.");
+    otp.verify(user.getEmail(), "VERIFY", code);
+    user.verify();
+  }
+
+  public void resetOtp(String address, String code, String password) {
+    var user =
+        users
+            .lockByEmail(normalize(address))
+            .orElseThrow(() -> new ApiException(400, "Invalid reset request."));
+    if (!user.isEmailVerified() || !"ACTIVE".equals(user.getAccountStatus()))
+      throw new ApiException(400, "Invalid reset request.");
+    otp.verify(user.getEmail(), "RESET", code);
+    user.changePassword(encoder.encode(password));
+    resets.findByUserIdAndUsedAtIsNull(user.getId()).forEach(ExpiringToken::consume);
   }
 
   public void changePassword(Long id, Change r) {

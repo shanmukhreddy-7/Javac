@@ -22,3 +22,7 @@ test-results/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+*.mv.db
+*.trace.db
+.env.backend

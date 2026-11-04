@@ -30,7 +30,16 @@ public class ApiErrors {
 
   @ExceptionHandler(DataIntegrityViolationException.class)
   public ResponseEntity<Error> duplicate() {
-    return response(409, "This email or registration number is already registered.", Map.of());
+    return response(
+        409,
+        "This action conflicts with an existing record. Please refresh and try again.",
+        Map.of());
+  }
+
+  @ExceptionHandler(
+      org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+  public ResponseEntity<Error> badParameter() {
+    return response(400, "Invalid request parameter.", Map.of());
   }
 
   @ExceptionHandler(HttpMessageNotReadableException.class)

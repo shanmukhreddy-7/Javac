@@ -1,118 +1,131 @@
 # JAVAC — Job and Value Across Campus
 
-A polished campus services presentation with **no OTP, no email verification, and no separate Java/MySQL server to run**. Create an account, sign in by email, edit a profile, choose skills, and send requests to another account.
-
-This is explicitly a **classroom presentation**: email-only sign-in does not establish identity. Use fictional details. No passwords are requested or stored. Do not treat it as a production identity or private messaging system.
-
-**Live presentation:** https://javac-iota.vercel.app/
+A university campus marketplace with a **Java 21 / Spring Boot backend**, **React + TypeScript frontend**, email OTP verification, jobs, messages, notifications, reviews, admin moderation and offline payment records.
 
 ## Run in VS Code
 
-Requires **Node.js 24.x** with npm. Open this `javac-campus` folder in VS Code.
+Open this `javac-campus` folder. Install Java 21 and Node.js 24. The Maven wrapper is included.
+
+Run these commands individually in VS Code's terminal:
 
 ```bash
 npm install
+```
+
+```bash
 npm run dev
 ```
 
-Open **http://localhost:5173/**. Leave the terminal running. Stop with **Ctrl+C**.
+Open **http://localhost:5173/**. Keep that terminal open. Ctrl+C stops both Java and React. If you already have an earlier JAVAC service running, stop it first with `bash scripts/local.sh stop`.
 
-`npm install` at this root installs the frontend dependencies. The application and its small API run together in Vite. Local data is saved in the ignored `frontend/.local-data/campus.sqlite` file; Java, Maven, MySQL, Docker, SMTP and paid APIs are not needed for this build.
+Local development needs no database installation: Java uses persistent **H2** in `backend/.local-data/`. It replaces SQLite for this Java build. Your old presentation records remain untouched and are not treated as verified accounts.
 
-Alternatively:
+## Verify a local account
 
-```bash
-cd frontend
-npm ci
-npm run dev
+Register with an `@srmap.edu.in` address and a password, then open the newest HTML file in **backend/dev-mailbox/**. Enter its six-digit code on the verification page, then log in. This private mailbox is a development substitute for email delivery; it does not send to a real inbox. Codes expire after five minutes, allow five guesses, are stored hashed, and have a 60-second resend cooldown. Never publish mailbox files.
+
+The administrator is **shanmukha_thiyyagura@srmap.edu.in**, after email verification and password login. There is no pre-created admin password or public role-assignment endpoint. On a development machine with the private mailbox, verification only simulates email ownership; do not expose the dev profile publicly.
+
+## Features
+
+- University allowlist, password hashing, OTP signup, OTP password recovery, logout and session revocation.
+- Editable student profiles and skills; public student feedback without private email exposure.
+- Post, search and filter jobs by category; pickup/destination, deadline and agreed reward.
+- Job lifecycle: Open → Accepted → In progress → Delivered → Completed. Only the requester confirms completion. Cancellation is available before delivery.
+- Atomic acceptance prevents two helpers from claiming the same job.
+- Participant-only messages and notifications, refreshed every five seconds while visible.
+- Earned, awaiting collection and collected totals. Helpers confirm payments received through cash, PhonePe or Paytm outside JAVAC. No money is transferred; collection is self-reported.
+- One review per participant after completion; reports and admin account suspension/listing moderation.
+
+## Folder guide
+
+```text
+javac-campus/
+  backend/                       Java application and Java tests
+    src/main/java/com/javac/campus/
+      main/JavacApplication.java  Java main() entry point
+      auth/                      Passwords, OTPs and email delivery
+      marketplace/               Job, message, earnings and moderation rules
+      profile/ skill/ user/      Student data and services
+      config/ security/ common/  Runtime configuration and protections
+  frontend/
+    src/main/main.tsx            React entry point
+    src/App.tsx                 Page routing
+    src/marketplace/            Marketplace pages, types and data loading
+    src/contexts/              Student session state
+    src/services/              Java API client and validation
+  database/migrations/          Single source of SQL migrations (packaged by Maven)
+  scripts/                      Start, build and test commands
+  docs/                         Setup, architecture, OOP and verification notes
+  archive/                      Earlier presentation API and MySQL reference configuration
+  Dockerfile                    Combined Java + React production image
 ```
 
-### This already-configured Linux machine
-
-The app can also run as the existing user service. Choose **Terminal → Run Task → JAVAC: Start local services (Linux)**, or run:
-
-```bash
-bash scripts/local.sh start
-bash scripts/local.sh status
-bash scripts/local.sh stop
-```
-
-The launcher now starts **only the frontend and its integrated API**. It does not start Java or MySQL. Stop that service before starting `npm run dev` manually on the same port. Services are not enabled automatically at boot.
-
-## Try the full flow
-
-1. Create a fictional account, e.g. `alex-demo@srmap.edu.in`, with a unique registration number. No password or verification step appears.
-2. Log in immediately using that email.
-3. Edit the profile and add/remove skills; save them. Refresh to check persistence.
-4. Open a **different browser or an incognito window** and register another account, e.g. `taylor-demo@srmap.edu.in`. Different tabs in the same browser share a sign-in cookie, so they are not independent users.
-5. In Alex's account open **Requests**, choose Taylor, and send a request.
-6. In Taylor's account open **Requests → Inbox**. The request appears automatically within 5 seconds while the page is visible; **Refresh** also updates it immediately.
-7. Accept or decline it. Alex sees that status in **Sent** after the next refresh/poll.
-8. Log out. Records remain in the shared data store.
-
-The student directory initially has no invented students. Create the second account to see another recipient. **Explore demo** opens a separate offline sample: it demonstrates profile editing, but shared requests need the normal presentation accounts.
-
-## GitHub
-
-Repository: https://github.com/shanmukhreddy-7/Javac
-
-The `.gitignore` excludes local environment files, database files, session secrets, dependencies, build output and machine-specific VS Code settings. The old Java implementation is retained in `backend/` for reference, but is **not used or deployed by this build**. The earlier setup guide is archived in `docs/JAVA_MODULE_REFERENCE.md`.
-
-## Deploy to Vercel — with real cross-account sharing
-
-Import the GitHub repository and use:
-
-| Setting | Value |
-| --- | --- |
-| Framework | Vite |
-| Root directory | `frontend` |
-| Node version | `24.x` |
-| Build command | `npm run build` |
-| Output directory | `dist` |
-
-The `frontend/api/campus.ts` function deploys **with** the frontend. It is not a separately hosted Java backend. The configuration routes `/api/*` to that function and frontend deep links to the SPA.
-
-**Shared storage is required for requests to synchronize across browsers/devices.** In the Vercel project, open **Storage → Create/Connect Database → Neon Postgres** and select a suitable free plan. Connect the database to the project for Production and Preview, then redeploy. Never enable a paid plan without reviewing its terms yourself.
-
-Set server-only environment variables:
-
-```properties
-DATABASE_URL=<the real Neon connection string supplied by the integration>
-APP_APPROVED_EMAIL_DOMAINS=srmap.edu.in
-```
-
-Optionally set `JAVAC_SESSION_SECRET` to a separate random string of at least 32 characters. If omitted, the application derives its signing key from the private database connection string. Never put these server-only values in a `VITE_*` variable or GitHub file.
-
-Frontend settings (defaults already match today's build):
-
-```properties
-VITE_API_BASE_URL=
-VITE_PRESENTATION_MODE=true
-VITE_DEMO_MODE=true
-```
-
-Keep `VITE_API_BASE_URL` **blank**. This makes API calls use the same Vercel origin. A `localhost` backend URL in a deployed site would incorrectly refer to each visitor's computer.
-
-Tables and indexes are created automatically when the connected database is first used. All deployed instances use the same `DATABASE_URL`, which is how requests appear in the other account. A Vercel instance's memory or temporary filesystem is not used as shared storage. If storage is missing, the app displays a clear setup error; it never pretends requests were delivered.
-
-For a strict data separation between preview and production, connect separate Neon branches/databases for those environments. The same URL deliberately shares records between environments.
+Java's main folder starts the backend. React's main folder mounts the browser application; it is not a Java main method. Business logic remains in services, not in the entry point.
 
 ## Build and test
 
 ```bash
 npm test
+```
+
+```bash
 npm run build
 ```
 
-Tests cover the no-password/no-verification screens, immediate sign-in, profile and skill validation, cookies/CSRF, cross-account request delivery and status propagation, and attempts to respond to another account's request. The server tests run against isolated SQLite databases and independent HTTP sessions.
+The build produces `backend/target/campus-1.0.0.jar`, containing the compiled frontend. You can also run it with `java -jar backend/target/campus-1.0.0.jar` and open http://localhost:8080/ (stop the dev backend first).
 
-## Project structure
+Separate terminals are supported:
 
-- `frontend/src/` — React, TypeScript, Tailwind, React Router, Lucide, React Hook Form and Zod.
-- `frontend/server/handler.ts` — the shared no-OTP presentation API.
-- `frontend/server/store.ts` — SQLite locally; Neon Postgres on Vercel.
-- `frontend/api/campus.ts` — Vercel function entry point.
-- `frontend/vercel.json` — API routing and SPA fallback.
-- `backend/` — earlier Java module, preserved for reference and not required for this deployment.
+```bash
+npm run dev:backend
+```
 
-Read `docs/PRESENTATION_VERIFICATION.md` for checks actually executed and deployment limitations.
+```bash
+npm run dev:frontend
+```
+
+On Windows, these npm commands use `mvnw.cmd`; Java 21 must be on PATH.
+
+## Real OTP email through Neon Auth
+
+The database itself does not deliver emails. Enable **Neon Auth / Managed Better Auth**, Email signup and **Verify at Sign-up → Verification code** in your Neon project. Set `NEON_AUTH_URL` to the displayed Auth URL, including `/auth`. Add the exact frontend origin under trusted domains and set the application name to JAVAC. This build uses Neon only to deliver/validate email ownership codes; Java hashes and verifies the application's passwords and manages sessions.
+
+For this project's hosted deployment, Neon must trust `https://javac-iota.vercel.app`, the configured `APP_FRONTEND_URL` sent by Java to the email service. Allow Localhost alone is insufficient. A provider response `INVALID_ORIGIN` means a missing trusted-domain setting; it does not mean that a student entered an incorrect OTP. Code-send failures roll back registration, so retry account creation after fixing the setting.
+
+Neon Auth supplies a one-time sign-in code as proof of mailbox ownership. Java validates the returned verified email, then activates the JAVAC account or authorizes a password reset. This works for new and existing Neon identities without sharing JAVAC passwords. Provider session cookies are not forwarded to the browser; Java manages its own application session.
+
+Neon's shared sender can be used for development/classroom codes. Its production checklist requires a custom email provider before a full production launch. Sending from the university address additionally needs university-authorized SMTP; knowing the address is not permission to send as it. Alternatively, configure real SMTP directly in production. See [Neon email verification](https://neon.com/docs/auth/guides/email-verification) and [production requirements](https://neon.com/docs/auth/production-checklist).
+
+Copy `.env.example` to ignored `.env.backend` only if overriding local defaults. No secrets belong in `VITE_*` variables or GitHub.
+
+## Deployment
+
+The stable production address is https://javac-iota.vercel.app/ and login is https://javac-iota.vercel.app/login. The secure Java release replaces the earlier presentation build. Cloud accounts are stored in Neon; a verified cloud-preview account uses the same database when signing into the stable address. Local H2 accounts remain separate. See docs/VERIFICATION.md for release checks.
+
+The root Dockerfile builds React and Java together. Vercel's Container runtime is a deployment option; use repository root, framework **Container**, not the earlier `frontend`/Vite settings. The Java server serves both HTML and `/api` on one origin. Use a preview first.
+
+Set the function region to **Singapore (`sin1`)**, beside this project's Neon database. The Singapore preview passed hosted API/session checks; the earlier US-region startup exceeded the startup deadline while running database migrations. Local accounts use H2 and do not automatically exist in cloud Neon storage.
+
+The container enables Spring's forwarded-header handling so requests behind Vercel's HTTPS proxy retain their public scheme and host. This lets browser POSTs on the same preview origin pass the same-origin check while unrelated origins remain blocked. Deploy this container behind the trusted platform proxy; direct local execution keeps Spring's default header handling.
+
+Required production environment:
+
+```properties
+SPRING_PROFILES_ACTIVE=prod
+DATABASE_URL_UNPOOLED=<private Neon direct connection string supplied by integration>
+DB_SCHEMA=javac_secure
+APP_ADMIN_EMAIL=shanmukha_thiyyagura@srmap.edu.in
+APP_APPROVED_EMAIL_DOMAINS=srmap.edu.in
+APP_FRONTEND_URL=https://your-exact-site.vercel.app
+APP_ALLOWED_ORIGINS=https://your-exact-site.vercel.app
+COOKIE_SECURE=true
+PORT=8080
+NEON_AUTH_URL=<real enabled Neon Auth URL ending in /auth>
+```
+
+Alternatively supply `DATABASE_URL`; the direct/unpooled URL is preferred for Java's bounded Hikari connection pool. TLS certificate/hostname verification is enabled. Flyway creates the isolated `javac_secure` schema and applies migrations; the previous presentation tables remain untouched. Production sessions use PostgreSQL via Spring Session JDBC so separate instances share login state. Production must never use H2 or a dev mailbox.
+
+The optional `frontend/api/campus.ts` is only a same-origin proxy if hosting Java separately. It uses server-only `JAVA_BACKEND_URL`; business logic and account verification remain in Java. It is not needed for the combined container.
+
+See docs/VERIFICATION.md for actual checks and outstanding deployment/email setup.

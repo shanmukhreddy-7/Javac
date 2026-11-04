@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, Link, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  MessageSquare,
+  Bell,
   UserRound,
   Settings,
   LogOut,
@@ -83,29 +83,34 @@ export default function AppLayout() {
             <UserRound size={19} />
             My profile
           </NavLink>
-          {presentationMode && (
-            <NavLink to="/requests" onClick={() => setOpen(false)}>
-              <MessageSquare size={19} />
-              Requests
+          <NavLink to="/jobs" onClick={() => setOpen(false)}>
+            <BriefcaseBusiness size={19} />
+            Marketplace
+          </NavLink>
+          <NavLink to="/my-jobs" onClick={() => setOpen(false)}>
+            <BriefcaseBusiness size={19} />
+            My jobs
+          </NavLink>
+          <NavLink to="/earnings" onClick={() => setOpen(false)}>
+            <Wallet size={19} />
+            Earnings
+          </NavLink>
+          <NavLink to="/notifications" onClick={() => setOpen(false)}>
+            <Bell size={19} />
+            Notifications
+          </NavLink>
+          {student?.role === "ADMIN" ? (
+            <NavLink to="/admin" onClick={() => setOpen(false)}>
+              <ShieldCheck size={19} />
+              Admin
             </NavLink>
-          )}
+          ) : null}
           <NavLink to="/settings" onClick={() => setOpen(false)}>
             <Settings size={19} />
             Settings
           </NavLink>
         </nav>
         <div className="sidebar-divider" />
-        <span className="nav-caption">ON THE HORIZON</span>
-        <div className="future-nav">
-          <span>
-            <BriefcaseBusiness size={18} />
-            Marketplace <small>Soon</small>
-          </span>
-          <span>
-            <Wallet size={18} />
-            My earnings <small>Soon</small>
-          </span>
-        </div>
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <ShieldCheck size={23} />

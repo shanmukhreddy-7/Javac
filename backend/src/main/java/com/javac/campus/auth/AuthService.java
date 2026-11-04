@@ -5,6 +5,10 @@ import com.javac.campus.security.StudentPrincipal;
 import java.util.List;
 
 public interface AuthService {
+  void verifyOtp(String email, String code);
+
+  void resetOtp(String email, String code, String password);
+
   void register(Register request);
 
   StudentPrincipal login(Login request);

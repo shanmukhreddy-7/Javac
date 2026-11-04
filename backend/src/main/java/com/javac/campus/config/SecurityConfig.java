@@ -44,12 +44,38 @@ public class SecurityConfig {
         .authorizeHttpRequests(
             a ->
                 a.requestMatchers(
+                        "/",
+                        "/index.html",
+                        "/assets/**",
+                        "/fonts/**",
+                        "/javac-logo.png",
+                        "/favicon.png",
+                        "/login",
+                        "/register",
+                        "/verify-email",
+                        "/forgot-password",
+                        "/reset-password",
+                        "/dashboard",
+                        "/profile",
+                        "/settings",
+                        "/requests",
+                        "/jobs",
+                        "/jobs/**",
+                        "/my-jobs",
+                        "/earnings",
+                        "/notifications",
+                        "/admin",
+                        "/students/**")
+                    .permitAll()
+                    .requestMatchers(
                         "/api/auth/csrf",
                         "/api/auth/config",
                         "/api/skills",
                         "/api/auth/register",
                         "/api/auth/login",
                         "/api/auth/verify-email",
+                        "/api/auth/verify-otp",
+                        "/api/auth/reset-otp",
                         "/api/auth/resend-verification",
                         "/api/auth/forgot-password",
                         "/api/auth/reset-password")

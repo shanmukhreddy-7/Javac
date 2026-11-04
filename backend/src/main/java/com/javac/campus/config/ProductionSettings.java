@@ -29,13 +29,17 @@ public class ProductionSettings {
   @PostConstruct
   void validate() {
     if (java.util.Arrays.asList(environment.getActiveProfiles()).contains("dev")
+        || (environment.getProperty("DATABASE_URL", "").isBlank()
+            && environment.getProperty("DATABASE_URL_UNPOOLED", "").isBlank()
+            && !environment.getProperty("spring.datasource.url", "").startsWith("jdbc:postgresql:"))
         || !secure
         || !frontend.startsWith("https://")
         || origins.contains("*")
         || domains.isBlank()
-        || mailHost.equals("localhost"))
+        || (mailHost.equals("localhost")
+            && environment.getProperty("app.neon-auth-url", "").isBlank()))
       throw new IllegalStateException(
           "Production requires secure cookies, an HTTPS frontend, explicit allowed origins,"
-              + " approved email domains, and an SMTP host.");
+              + " approved email domains, PostgreSQL, and Neon Auth or an SMTP host.");
   }
 }

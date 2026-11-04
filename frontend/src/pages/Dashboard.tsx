@@ -174,48 +174,53 @@ export default function Dashboard() {
               who need your skills.
             </p>
           </div>
-          <Link className="button" to="/requests">
-            Open requests <ArrowUpRight size={17} />
+          <Link className="button" to="/my-jobs">
+            Open my jobs <ArrowUpRight size={17} />
           </Link>
         </section>
       )}
       <section className="horizon-section">
         <div className="horizon-heading">
           <div>
-            <span className="eyebrow">THIS IS JUST THE BEGINNING</span>
-            <h2>A little further down the road.</h2>
+            <span className="eyebrow">PUT YOUR CAMPUS CONNECTIONS TO WORK</span>
+            <h2>Your next opportunity.</h2>
           </div>
-          <span className="coming-soon">COMING IN FUTURE MODULES</span>
         </div>
         <div className="horizon-grid">
           {[
             {
               icon: BriefcaseBusiness,
               name: "Browse jobs",
-              copy: "Find a place to put your skills to work.",
+              to: "/jobs",
+              copy: "Find a task that fits your route or skills.",
             },
             {
               icon: PenLine,
               name: "Post a job",
-              copy: "Find the right person for a helping hand.",
+              to: "/jobs/new",
+              copy: "Ask for a helping hand on campus.",
             },
             {
               icon: Wallet,
-              name: "My jobs & earnings",
-              copy: "Keep your opportunities in one place.",
+              name: "My earnings",
+              to: "/earnings",
+              copy: "Track rewards and payments collected offline.",
             },
             {
               icon: Bell,
               name: "Notifications",
-              copy: "Stay connected to what matters.",
+              to: "/notifications",
+              copy: "Keep up with jobs and messages.",
             },
-          ].map(({ icon: Icon, name, copy }) => (
-            <article key={name}>
-              <Icon size={22} />
-              <h3>{name}</h3>
-              <p>{copy}</p>
-              <span>Coming soon</span>
-            </article>
+          ].map(({ icon: Icon, name, to, copy }) => (
+            <Link to={to} key={name}>
+              <article>
+                <Icon size={22} />
+                <h3>{name}</h3>
+                <p>{copy}</p>
+                <span>Open →</span>
+              </article>
+            </Link>
           ))}
         </div>
       </section>

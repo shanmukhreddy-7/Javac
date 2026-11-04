@@ -22,7 +22,7 @@ export async function api<T>(
       const csrf = await fetch(base + "/api/auth/csrf", {
         credentials: "include",
         cache: "no-store",
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(30000),
       });
       if (!csrf.ok)
         throw new RequestError(csrf.status, {
@@ -37,7 +37,7 @@ export async function api<T>(
       headers,
       credentials: "include",
       cache: "no-store",
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(30000),
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const result = await response.json().catch(() => ({

@@ -1,0 +1,1 @@
+The presentation-api folder preserves the earlier email-only TypeScript API for reference. It is not built or deployed. The active backend is Java Spring Boot in backend/. Never use the archived API for verified accounts.

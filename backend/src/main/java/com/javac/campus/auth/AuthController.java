@@ -37,7 +37,15 @@ public class AuthController {
 
   @GetMapping("/config")
   public Map<String, Object> config() {
-    return Map.of("approvedDomains", auth.approvedDomains());
+    return Map.of(
+        "approvedDomains",
+        auth.approvedDomains(),
+        "verificationRequired",
+        true,
+        "presentationMode",
+        false,
+        "verificationMode",
+        "otp");
   }
 
   @PostMapping("/register")
@@ -71,6 +79,18 @@ public class AuthController {
     return students.get(p.id());
   }
 
+  @PostMapping("/verify-otp")
+  public Message verifyOtp(@Valid @RequestBody Otp r) {
+    auth.verifyOtp(r.email(), r.code());
+    return new Message("Email verified. You can now log in.");
+  }
+
+  @PostMapping("/reset-otp")
+  public Message resetOtp(@Valid @RequestBody ResetOtp r) {
+    auth.resetOtp(r.email(), r.code(), r.password());
+    return new Message("Password reset. Please log in.");
+  }
+
   @PostMapping("/verify-email")
   public Message verify(@Valid @RequestBody TokenRequest r) {
     auth.verify(r.token());
@@ -81,7 +101,7 @@ public class AuthController {
   public Message resend(@Valid @RequestBody EmailRequest r) {
     auth.resend(r.email());
     return new Message(
-        "If this account needs verification, a link will be sent. Allow 60 seconds between"
+        "If this account needs verification, a code will be sent. Allow 60 seconds between"
             + " requests.");
   }
 
@@ -89,7 +109,7 @@ public class AuthController {
   public Message forgot(@Valid @RequestBody EmailRequest r) {
     auth.forgotPassword(r.email());
     return new Message(
-        "If an eligible account exists, a reset link will be sent. Allow 60 seconds between"
+        "If an eligible account exists, a reset code will be sent. Allow 60 seconds between"
             + " requests.");
   }
 

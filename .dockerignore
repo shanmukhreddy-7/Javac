@@ -1,0 +1,10 @@
+**/node_modules
+**/target
+**/dist
+**/.local-data
+**/dev-mailbox
+**/.env*
+.git
+.vercel
+**/.vercel
+archive

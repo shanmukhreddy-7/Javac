@@ -1,77 +1,39 @@
-# Verification — 28 October 2026
+# Secure Java build verification — 4 November 2026
 
-Checks were executed locally using a downloaded full Eclipse Temurin JDK 21, Maven Wrapper 3.9.11, bundled Node 24.22.1, and a temporary, loopback-only MySQL Community Server 8.4.13. The host's installed Java 25 is a runtime without `javac`; it could not compile the project, so verification used the full JDK 21. No system Java/Node/MySQL configuration was changed.
+## Completed
 
-| Check | Result |
-| --- | --- |
-| `backend/./mvnw package` with JDK 21 | PASS; executable Spring Boot JAR built; 19 tests, zero failures/errors/skips |
-| Same backend tests with MySQL datasource overrides | PASS; 19 tests, zero failures/errors/skips |
-| Flyway V1 schema + V2 skills on an empty MySQL database | PASS; both migrations applied; Hibernate schema validation succeeded |
-| Live HTTP session/CSRF workflow against running Java + MySQL | PASS; register, pending-login rejection, development email link, verification, login, session read, profile PATCH, skill PUT, persisted GET, logout, unauthorized GET |
-| `frontend/npm test` | PASS; 9 interaction/validation tests |
-| `frontend/npm run build` | PASS; TypeScript and Vite production bundle |
-| `frontend/npm audit` | PASS; zero reported vulnerabilities |
-| Browser demo navigation | PASS; explicit demo banner and fictional/unverified identity |
-| Browser demo profile and skills edits | PASS; temporary save feedback and selected skill state visibly confirmed |
-| Browser responsive navigation | PASS at the available narrow viewport; closed navigation is inert and open menu links navigate correctly |
-| Browser horizontal overflow | None observed; document width stayed within viewport |
-| Windows / macOS execution | Not executed; scripts, Maven Wrapper, and documented commands provided |
-| Docker image / Compose execution | Not executed; Docker was not installed on this host |
-| Vercel deployment / external SMTP | Not executed; configuration and exact setup instructions provided |
+- Root `npm run build`: React TypeScript/Vite build and Maven executable JAR packaging passed.
+- Root `npm test`: 12 frontend tests and 27 Java tests passed.
+- Java tests include the previous authentication/profile coverage plus OTP expiry/cooldown, persisted failed-attempt limits, password reset session revocation, job messages/state rules, offline collection, reviews, admin suspension, two simultaneous acceptance attempts (one success, one conflict), and a real-cookie JDBC session flow through verification/login/logout.
+- Actual local HTTP flow through localhost:5173 → Vite proxy → Java on 8080 → persistent H2: registered two fictional accounts, read their private development mailboxes, verified codes, logged in with passwords, posted/accepted/started/delivered/completed a food pickup, recorded ₹30 collected through PhonePe, and added feedback. No actual money moved or inbox email was sent.
+- Browser: verified password login, updated navigation, completed job details/review and earnings showing earned ₹30, pending ₹0, collected ₹30. Screenshot: screenshots/secure-earnings.png.
 
-## Reproducing the checks
+## Email service confirmed
 
-From `backend/`, with `JAVA_HOME` pointing at a full JDK 21:
+The user confirmed that an OTP email arrived in the designated university inbox and the local JAVAC account was verified. No password or OTP was shared in chat. Java uses a managed one-time sign-in code to prove email ownership, while retaining its own password hashes and application sessions.
 
-```bash
-./mvnw package
-```
+## Cloud preview verified
 
-For real MySQL coverage, create a separate disposable `javac_test` database, set its password in `SPRING_DATASOURCE_PASSWORD`, and run:
+- Commit `15e4b86d43962b0742cd5b67831ba621628e603e`, deployment `dpl_99evweD6ffsmkdKE14P5NxAZJUP9`: Container build READY in `sin1`, beside the Singapore Neon database. The earlier `iad1` startup timed out during migrations; the Singapore preview started and returned JSON successfully.
+- Preview: https://javac-pwmwz3nla-shannus-projects-5c3ca9cf.vercel.app/. This preview is protected by Vercel authentication; authenticated CLI access does not prove public access.
+- Hosted `/api/auth/config` and `/api/auth/csrf` returned 200. The session cookie is Secure, HttpOnly, SameSite=Lax. A fresh `/api/auth/me` returned 401; login without CSRF returned 403; login with a valid persisted CSRF session and a nonexistent account returned 401. `/dashboard` served the React application successfully.
+- These requests exercise Java startup, Flyway/PostgreSQL, JDBC-backed sessions, CSRF, credential lookup, and SPA routing. No cloud student accounts were seeded, no email was sent by these checks, and no user passwords were accessed.
+- Runtime error/fatal log scan for this deployment returned no matching records after the smoke checks.
 
-```bash
-./mvnw test -Dspring.datasource.url='jdbc:mysql://localhost:3306/javac_test?serverTimezone=UTC' -Dspring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver -Dspring.datasource.username=javac_test
-```
+### Browser-origin regression
 
-The test environment used port 3307 to avoid any existing database. Application requests were tested separately on port 8080 with an isolated development mailbox. The temporary database did not replace or change a user database.
+The user reported an unreadable response on hosted login. Replaying the POST with the browser's exact preview `Origin` reproduced HTTP 403 with plain-text `Invalid CORS request`. The baseline CLI smoke omitted `Origin`, so it did not detect this failure. The container now enables `SERVER_FORWARD_HEADERS_STRATEGY=framework` to preserve the public HTTPS host/scheme through Vercel's proxy. Two new real-HTTP tests passed: the preview-origin POST with a valid cookie/CSRF token reaches authentication (401 for an intentionally nonexistent account), and an unrelated origin remains rejected (403). Retest the deployed browser-origin request before asking the user to log in again.
 
-From `frontend/`:
+The corrected commit `8e9b9552876b2fda717b8b3cc96fc7a36868b6e5` was deployed as `dpl_BmUccEzno3b3Z7yRAxYrUgED8xfW`. Hosted requests with the exact preview Origin passed the authentication/CSRF tests, and an unrelated Origin remained blocked. The user then reported a registration error. A focused provider request reproduced `403 INVALID_ORIGIN` from Neon Auth when Java's configured frontend origin was supplied. The administrator must add `https://javac-iota.vercel.app` to Neon Auth's trusted domains. Localhost permission alone does not authorize it. No OTP was sent by that rejected provider request, and registration remains uncommitted. Provider setup and code-delivery failures now have separate messages from invalid student codes.
 
-```bash
-npm ci
-npm test
-npm run build
-npm audit
-```
+## Cloud email and login confirmed
 
-## Coverage details
+The administrator saved `https://javac-iota.vercel.app` in Neon Auth's trusted domains. A subsequent email-code request returned HTTP 200 with success, and the user confirmed successful cloud registration/verification/login. No password or code was shared for this verification. The release uses the same Neon database/schema as the verified preview, so cloud accounts are retained.
 
-Backend tests exercise duplicate normalized identities, invalid domains, weak passwords, required terms/confirmation, one-use verification, expired verification, correct/incorrect/unverified login, persistent session, CSRF enforcement and rotation, protected profile update, independent student ownership, unknown-field ownership tampering, suspended-account access rejection, skills validation, resend cooldown, reset replay/session invalidation, current-password checks, logout, and IP rate limits.
+## Release checks and remaining limits
 
-Frontend tests exercise login/registration errors, password confirmation, successful login navigation, anonymous protected-route redirect, sample dashboard disclosure, temporary profile/skill saves, no silent demo on API failure, and the race where an older real-session request fails after explicit demo entry.
+- The latest Java suite passed 29 tests, including both real-HTTP proxy-origin regression tests; frontend coverage remains 12 passing tests. Full local two-account marketplace checks are described above. A manual two-account marketplace walkthrough has not yet been repeated in cloud storage.
+- Before assigning the stable domain, verify the production build's API configuration, cookie/CSRF round trip, authentication rejection paths, and frontend routes. Then verify the stable public URL without a Vercel protection bypass.
+- Neon’s production checklist requires a custom email provider for full production use. University sender identity needs university authorization; shared Neon sender is suitable for the classroom setup subject to its limits.
 
-## Warnings and practical limits
-
-- Spring Boot's managed Flyway 11.7.2 logs a MySQL 8.4 compatibility advisory. Both migrations and all 19 backend tests passed on MySQL 8.4.13; the advisory did not prevent startup or migration.
-- Vite removes two misplaced pure-comment annotations in the installed Zod dependency. The build still succeeds.
-- Browser checks used the available narrow in-app viewport. There was no automated viewport matrix or browser-driven real registration flow. The real Java/MySQL path was verified with HTTP requests and integration tests; frontend forms were covered with interaction tests.
-- External SMTP deliverability, production HTTPS/cookie behavior on chosen domains, hosted availability, Docker, and other operating systems must be checked in their target environments. Cross-site cookies may be blocked by browser privacy settings; prefer frontend/backend subdomains under one site.
-- The classroom app uses a single backend instance, in-memory sessions, synchronous mail, and a bounded in-memory rate limiter. See the README before scaling it.
-
-![Verified sample dashboard](screenshots/dashboard.png)
-
-
-## Installed local environment follow-up
-
-The required tools have now been installed persistently under the user's local tool directory. The actual application database and generated private credentials were configured, and all three services were left running under systemd user services. Approved domain: `srmap.edu.in`, supplied by the user.
-
-- Reinstalled frontend dependencies with `npm ci`: zero audit vulnerabilities.
-- Frontend: 9 tests passed; production build passed.
-- Backend: 20 tests passed; executable JAR built. The added regression test verifies that the `.env`-style `SPRING_PROFILES_ACTIVE` key activates the development mailbox.
-- Fixed the profile-selection configuration caught by the installation smoke test.
-- Live HTTP check against the newly installed Java/MySQL services passed: registration, pending-account login rejection, local mailbox link, verification, login, session persistence, profile update, skills assignment, logout, and unauthorized read.
-- Removed the disposable installation-check account and its mailbox file afterward. No sample student was retained in MySQL.
-- Frontend returned HTTP 200; database, backend, and frontend services were active.
-- The in-app browser security policy blocked automatic access to the existing tab during this installation turn. No new browser verification was claimed; refresh that tab manually.
-
-See `docs/LOCAL_SETUP.md` for VS Code Start/Stop/Status tasks and service commands.
+Local test records are named Classroom Boy/Girl and are not real university accounts. They are only verification fixtures in the development database and must not be seeded into production.
