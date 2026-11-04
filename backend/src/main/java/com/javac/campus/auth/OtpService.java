@@ -59,10 +59,24 @@ public class OtpService {
               .send(request, HttpResponse.BodyHandlers.ofString());
       if (response.statusCode() >= 200 && response.statusCode() < 300)
         return json.readTree(response.body());
+      String providerCode = "";
+      try {
+        providerCode = json.readTree(response.body()).path("code").asText("");
+      } catch (java.io.IOException ignored) {
+        // Never expose the provider's raw response, which may contain private information.
+      }
+      if (providerCode.equals("INVALID_ORIGIN"))
+        throw new ApiException(
+            503,
+            "Email verification is not configured for this site. The administrator must add the"
+                + " site address to Neon Auth's trusted domains.");
       if (response.statusCode() == 429)
         throw new ApiException(429, "Please wait before requesting another code.");
       if (response.statusCode() >= 500)
         throw new ApiException(503, "The email verification service is unavailable.");
+      if (path.equals("/email-otp/send-verification-otp"))
+        throw new ApiException(
+            503, "The email service could not send a verification code. Please try again later.");
       throw new ApiException(
           400, "The email code was not accepted. Check the code or request a new one.");
     } catch (ApiException e) {

@@ -91,7 +91,9 @@ On Windows, these npm commands use `mvnw.cmd`; Java 21 must be on PATH.
 
 The database itself does not deliver emails. Enable **Neon Auth / Managed Better Auth**, Email signup and **Verify at Sign-up → Verification code** in your Neon project. Set `NEON_AUTH_URL` to the displayed Auth URL, including `/auth`. Add the exact frontend origin under trusted domains and set the application name to JAVAC. This build uses Neon only to deliver/validate email ownership codes; Java hashes and verifies the application's passwords and manages sessions.
 
-Neon Auth holds a separate provider account with a random credential that is not used for JAVAC login. Password-reset OTP validation also rotates that provider credential. JAVAC passwords are never sent to Neon Auth. An existing Neon identity can receive a verification code only through that email's inbox.
+For this project's hosted deployment, Neon must trust `https://javac-iota.vercel.app`, the configured `APP_FRONTEND_URL` sent by Java to the email service. Allow Localhost alone is insufficient. A provider response `INVALID_ORIGIN` means a missing trusted-domain setting; it does not mean that a student entered an incorrect OTP. Code-send failures roll back registration, so retry account creation after fixing the setting.
+
+Neon Auth supplies a one-time sign-in code as proof of mailbox ownership. Java validates the returned verified email, then activates the JAVAC account or authorizes a password reset. This works for new and existing Neon identities without sharing JAVAC passwords. Provider session cookies are not forwarded to the browser; Java manages its own application session.
 
 Neon's shared sender can be used for development/classroom codes. Its production checklist requires a custom email provider before a full production launch. Sending from the university address additionally needs university-authorized SMTP; knowing the address is not permission to send as it. Alternatively, configure real SMTP directly in production. See [Neon email verification](https://neon.com/docs/auth/guides/email-verification) and [production requirements](https://neon.com/docs/auth/production-checklist).
 
@@ -102,6 +104,10 @@ Copy `.env.example` to ignored `.env.backend` only if overriding local defaults.
 The earlier website at https://javac-iota.vercel.app/ is the presentation build until the secure Java deployment is explicitly verified and promoted. Do not assume new features are live simply because they work locally.
 
 The root Dockerfile builds React and Java together. Vercel's Container runtime is a deployment option; use repository root, framework **Container**, not the earlier `frontend`/Vite settings. The Java server serves both HTML and `/api` on one origin. Use a preview first.
+
+Set the function region to **Singapore (`sin1`)**, beside this project's Neon database. The Singapore preview passed hosted API/session checks; the earlier US-region startup exceeded the startup deadline while running database migrations. Local accounts use H2 and do not automatically exist in cloud Neon storage.
+
+The container enables Spring's forwarded-header handling so requests behind Vercel's HTTPS proxy retain their public scheme and host. This lets browser POSTs on the same preview origin pass the same-origin check while unrelated origins remain blocked. Deploy this container behind the trusted platform proxy; direct local execution keeps Spring's default header handling.
 
 Required production environment:
 
