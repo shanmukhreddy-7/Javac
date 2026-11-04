@@ -14,3 +14,5 @@ app:
   rate-limit: 10000
 
   verification-mode: link
+
+  neon-auth-url: ""

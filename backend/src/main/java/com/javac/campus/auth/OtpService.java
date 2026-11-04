@@ -43,7 +43,7 @@ public class OtpService {
       throw new IllegalStateException("NEON_AUTH_URL must use HTTPS.");
   }
 
-  private void remote(String path, Map<String, String> body, boolean allowExisting) {
+  private com.fasterxml.jackson.databind.JsonNode remote(String path, Map<String, String> body) {
     try {
       var request =
           HttpRequest.newBuilder(URI.create(neon + path))
@@ -57,10 +57,8 @@ public class OtpService {
               .connectTimeout(Duration.ofSeconds(10))
               .build()
               .send(request, HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() >= 200 && response.statusCode() < 300) return;
-      if (allowExisting
-          && (response.statusCode() == 409 || response.body().contains("USER_ALREADY_EXISTS")))
-        return;
+      if (response.statusCode() >= 200 && response.statusCode() < 300)
+        return json.readTree(response.body());
       if (response.statusCode() == 429)
         throw new ApiException(429, "Please wait before requesting another code.");
       if (response.statusCode() >= 500)
@@ -88,16 +86,8 @@ public class OtpService {
     String code = String.format(Locale.ROOT, "%06d", random.nextInt(1000000));
     String hash = neon.isBlank() ? encoder.encode(code) : "NEON_MANAGED";
     if (!neon.isBlank()) {
-      if (purpose.equals("VERIFY")) {
-        remote(
-            "/sign-up/email",
-            Map.of("email", email, "name", name, "password", TokenGenerator.create() + "aA!1"),
-            true);
-        remote(
-            "/email-otp/send-verification-otp",
-            Map.of("email", email, "type", "email-verification"),
-            false);
-      } else remote("/email-otp/request-password-reset", Map.of("email", email), false);
+      // Prove mailbox ownership for either a new or an existing Neon identity.
+      remote("/email-otp/send-verification-otp", Map.of("email", email, "type", "sign-in"));
     } else
       mail.send(
           email,
@@ -129,13 +119,15 @@ public class OtpService {
     if (neon.isBlank()) {
       if (!encoder.matches(code, String.valueOf(row.get("code_hash"))))
         throw new ApiException(400, "Incorrect code. You have at most five attempts.");
-    } else if (purpose.equals("VERIFY"))
-      remote("/email-otp/verify-email", Map.of("email", email, "otp", code), false);
-    else
-      remote(
-          "/email-otp/reset-password",
-          Map.of("email", email, "otp", code, "password", TokenGenerator.create() + "aA!1"),
-          false);
+    } else {
+      var result = remote("/sign-in/email-otp", Map.of("email", email, "otp", code));
+      var user = result.path("user");
+      if (user.isMissingNode()) user = result.path("data").path("user");
+      if (!email.equalsIgnoreCase(user.path("email").asText())
+          || !user.path("emailVerified").asBoolean(false))
+        throw new ApiException(
+            400, "The email ownership check did not complete. Request a new code.");
+    }
     db.update("UPDATE email_otps SET used=TRUE WHERE email=? AND purpose=?", email, purpose);
   }
 }

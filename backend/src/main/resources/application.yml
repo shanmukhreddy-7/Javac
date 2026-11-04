@@ -53,7 +53,7 @@ app:
   rate-limit: ${AUTH_RATE_LIMIT:30}
 
   admin-email: ${APP_ADMIN_EMAIL:shanmukha_thiyyagura@srmap.edu.in}
-  neon-auth-url: ${NEON_AUTH_URL:}
+  neon-auth-url: ${NEON_AUTH_URL:${NEON_AUTH_BASE_URL:}}
   verification-mode: ${AUTH_VERIFICATION_MODE:otp}
 
 logging:

@@ -15,6 +15,7 @@ import org.springframework.core.env.Environment;
     classes = JavacApplication.class,
     properties = {
       "SPRING_PROFILES_ACTIVE=dev",
+      "app.neon-auth-url=",
       "spring.datasource.url=jdbc:h2:mem:javac_dev_profile;MODE=PostgreSQL;DEFAULT_NULL_ORDERING=HIGH;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
       "spring.datasource.driver-class-name=org.h2.Driver",
       "spring.datasource.username=sa",
