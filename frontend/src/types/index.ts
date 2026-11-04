@@ -17,6 +17,7 @@ export interface Student {
   createdAt: string;
   skills: Skill[];
   completion: number;
+  role?: "STUDENT" | "ADMIN";
 }
 export interface ProfileInput {
   fullName: string;

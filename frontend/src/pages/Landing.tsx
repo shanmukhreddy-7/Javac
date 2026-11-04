@@ -187,8 +187,8 @@ export default function Landing() {
               <div>
                 <h3>Make it official.</h3>
                 <p>
-                  Create your presentation account with a university email. No
-                  OTP or verification email — start straight away.
+                  Create your account with a university email and verify it with a
+                  one-time code before signing in.
                 </p>
                 <Link to="/register">
                   Create your account <ArrowUpRight size={16} />
@@ -213,10 +213,10 @@ export default function Landing() {
               <div>
                 <h3>Make things happen.</h3>
                 <p>
-                  Student-to-student jobs and services are next. Get your
-                  profile ready for what’s coming.
+                  Post a campus task, find a helper, and earn by putting your
+                  route or skills to work.
                 </p>
-                <span className="coming-soon">MARKETPLACE COMING SOON</span>
+                <Link to="/jobs">Explore marketplace <ArrowUpRight size={16}/></Link>
               </div>
             </article>
           </div>

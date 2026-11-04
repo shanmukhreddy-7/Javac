@@ -1,40 +1,31 @@
-# Module 1 architecture
+# JAVAC architecture
 
 ```mermaid
 flowchart LR
- Browser[React + TypeScript] -->|Fetch + HTTP-only session + CSRF| Security[Spring Security]
- Security --> Controller[Controllers + validated DTOs]
- Controller --> Services[AuthService / StudentService]
- Services --> Repositories[Spring Data repositories]
- Repositories --> MySQL[(MySQL 8+)]
- Services --> Delivery[EmailDelivery]
- Delivery --> Dev[Development HTML mailbox]
- Delivery --> SMTP[Production SMTP]
+ Browser[React / TypeScript] -->|Same origin API + session cookie + CSRF| Java[Java 21 / Spring Boot]
+ Java --> Controllers[Auth / Student / Marketplace controllers]
+ Controllers --> Services[Transactional services]
+ Services --> JPA[Spring Data JPA: accounts and profiles]
+ Services --> JDBC[JdbcTemplate: jobs and earnings]
+ JPA --> DB[(Neon PostgreSQL online / H2 locally)]
+ JDBC --> DB
+ Java --> Codes[OtpService]
+ Codes --> Neon[Neon Auth: delivered and validated codes]
+ Codes --> Local[Private dev mailbox / configured SMTP]
 ```
 
-The frontend is a static Vite bundle and can run on Vercel independently of Java. Real business logic and persistence reside in Java. `AuthContext` switches to a fictional sample only after explicit demo entry and only when `VITE_DEMO_MODE=true`. API failures never choose the demo.
+`backend/.../main/JavacApplication.java` is the actual Java entry point. `frontend/src/main/main.tsx` is the actual browser entry point. The root Dockerfile compiles React and includes its assets in the Java JAR. The same Java origin serves frontend routes and APIs; Vite uses an API proxy during development.
 
-```mermaid
-erDiagram
- users ||--|| student_profiles : owns
- student_profiles ||--o{ student_skills : selects
- skills ||--o{ student_skills : appears_in
- users ||--o{ email_verification_tokens : verifies
- users ||--o{ password_reset_tokens : recovers
-```
+The top-level database/migrations directory is packaged by Maven and applied with Flyway. Production uses its own `javac_secure` schema; old presentation tables in public are not trusted as verified identities. PostgreSQL is preferred online; local H2 makes the Java project easy to run without installing MySQL.
 
-- Unique normalized email, registration number, and profile user ID prevent duplicate accounts/profiles.
-- `student_skills(student_id,skill_id)` is a composite primary key; `student_id` references the **profile** ID.
-- Tokens store SHA-256 hashes, not the raw secret. Purpose-specific tables and pessimistic locks prevent replay during concurrent requests.
-- User rows carry timestamps, role, verification and account status, plus `credential_version`. Password changes increment the version; stale session principals are rejected on the next request.
-- Core details contribute 60% profile completion; bio +15, location +10, skills +15. This is derived from stored profile fields.
-- A student controls only their own profile. Email and registration number remain immutable through this module. Initials are used as the avatar; the nullable schema avatar column reserves future storage without an unsafe arbitrary URL/upload API.
-- Only skills are seeded. No real students, earnings, jobs, reviews, partnerships, or testimonials are invented.
+Accounts use salted PBKDF2 hashes. Verification and recovery codes expire in five minutes, have a five-attempt cap, a resend cooldown and one-time consumption. Failed attempts commit in their own transaction. Local code hashes are salted; managed codes are validated by Neon Auth. The development mailbox is excluded from production and from version control.
 
-## Extension points
+The designated admin must prove email ownership and log in; admin permissions are checked in Java against the configured email. Suspension changes the account's credential version, invalidating existing sessions. Production sessions are persisted in PostgreSQL with Spring Session JDBC; cookies are Secure, HTTP-only and SameSite=Lax. CSRF protection remains enabled.
 
-Add future `job`, `application`, `payment`, and `notification` packages to the same monolith, with their own controllers, DTOs, services, and migrations. Reference `users.id`; do not depend on frontend demo identifiers. Keep authorization in the Java request/service boundary.
+Job acceptance and state transitions acquire a row lock. Participant identity and lifecycle rules are checked server-side. Messages are restricted to the job's owner/helper; completed and cancelled conversations are read-only. Job searches are parameterized and paginated. Reviews require a completed job, target the other participant, and are unique per reviewer/job.
 
-## Operational scope
+An agreed reward becomes earned only after requester-confirmed completion. Only the helper can record receipt of offline payment, and only once. That event is self-reported, not independently verified and not a money transfer.
 
-This is a single-instance classroom application. Sessions and rate counters are in memory. Email is synchronous; production mail delivery needs correctly configured SMTP. Multi-instance production would need shared sessions/limiting, operational monitoring, token-retention cleanup and an email outbox/retry policy. Development email HTML must remain private and ignored. No production mailbox endpoint exists.
+## Limits
+
+The app is a classroom project, not a formally audited payment or identity platform. Real Neon Auth delivery, production schema/session behavior, container availability and the complete deployed flow must be tested before promoting the secure build. The request rate limiter is currently bounded per Java instance; OTP attempt and cooldown state is shared in the database. Scale-wide login throttling and operational monitoring need review for a larger public rollout.

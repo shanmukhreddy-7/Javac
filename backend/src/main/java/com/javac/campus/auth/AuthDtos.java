@@ -47,5 +47,14 @@ public final class AuthDtos {
               message = "Use 12–64 characters with upper/lowercase, a number and a symbol.")
           String password) {}
 
+  public record Otp(
+      @NotBlank @Email @Size(max = 254) String email,
+      @NotBlank @Pattern(regexp = "[0-9]{6}") String code) {}
+
+  public record ResetOtp(
+      @NotBlank @Email @Size(max = 254) String email,
+      @NotBlank @Pattern(regexp = "[0-9]{6}") String code,
+      @NotBlank @Pattern(regexp = PASSWORD) String password) {}
+
   public record Message(String message) {}
 }

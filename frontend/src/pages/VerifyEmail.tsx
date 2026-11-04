@@ -1,51 +1,41 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocation, Link } from "react-router-dom";
-import { Mail, ArrowUpRight, ShieldCheck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";
-import { Feedback, Spinner } from "../components/ui/Feedback";
 import Field from "../components/forms/Field";
+import { Feedback } from "../components/ui/Feedback";
 import { api } from "../services/api";
 export default function VerifyEmail() {
   const location = useLocation();
-  const state = location.state as {
-    email?: string;
-    registered?: boolean;
-  } | null;
-  const [token] = useState(
-    () =>
-      new URLSearchParams(location.hash.slice(1)).get("token") ??
-      new URLSearchParams(location.search).get("token"),
-  );
-  const [email, setEmail] = useState(state?.email ?? "");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [verified, setVerified] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const started = useRef(false);
-  useEffect(() => {
-    if (!token || started.current) return;
-    started.current = true;
-    window.history.replaceState(null, "", "/verify-email");
-    setBusy(true);
-    api<{ message: string }>("/api/auth/verify-email", "POST", { token })
-      .then((r) => {
-        setMessage(r.message);
-        setVerified(true);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setBusy(false));
-  }, [token]);
+  const state = location.state as { email?: string } | null;
+  const [email, setEmail] = useState(state?.email ?? ""),
+    [code, setCode] = useState(""),
+    [busy, setBusy] = useState(false),
+    [done, setDone] = useState(false),
+    [error, setError] = useState(""),
+    [message, setMessage] = useState(""),
+    [cooldown, setCooldown] = useState(state?.email ? 60 : 0);
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
-  const resend = async (e: React.FormEvent) => {
+  async function verify(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
-    setMessage("");
+    try {
+      await api("/api/auth/verify-otp", "POST", { email, code });
+      setDone(true);
+      setCode("");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function resend() {
+    setBusy(true);
+    setError("");
     try {
       const r = await api<{ message: string }>(
         "/api/auth/resend-verification",
@@ -59,32 +49,24 @@ export default function VerifyEmail() {
     } finally {
       setBusy(false);
     }
-  };
+  }
   return (
     <AuthLayout>
-      <div className="page-symbol">{verified ? <ShieldCheck /> : <Mail />}</div>
-      <span className="eyebrow">ONE LAST CONNECTION</span>
-      <h1>{verified ? "You’re officially in." : "Check your inbox."}</h1>
+      <span className="eyebrow">YOUR CAMPUS CONNECTION</span>
+      <h1>{done ? "You’re verified." : "Check your email."}</h1>
       <p className="form-intro">
-        {verified
-          ? "Your university email is verified. Your campus is ready for you."
-          : state?.registered
-            ? "We’ve sent a verification link to your university email. Open it to activate your account."
-            : "Open your verification link, or request a new one below. Links expire after 30 minutes."}
+        {done
+          ? "Sign in with your password to get started."
+          : "Enter the six-digit code sent to your university email. Codes expire after five minutes."}
       </p>
       <Feedback message={error} />
       <Feedback message={message} success />
-      {busy && (
-        <div className="loading-inline">
-          <Spinner /> Working on it…
-        </div>
-      )}
-      {verified ? (
+      {done ? (
         <Link className="button full" to="/login">
-          Continue to login <ArrowUpRight size={18} />
+          Continue to login
         </Link>
       ) : (
-        <form onSubmit={resend}>
+        <form onSubmit={verify}>
           <Field
             label="University email"
             type="email"
@@ -92,17 +74,28 @@ export default function VerifyEmail() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@university.edu"
           />
-          <button className="button full" disabled={busy || cooldown > 0}>
-            {cooldown > 0
-              ? `Resend in ${cooldown}s`
-              : "Resend verification email"}
+          <Field
+            label="Verification code"
+            required
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]{6}"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+          />
+          <button className="button full" disabled={busy}>
+            Verify email
           </button>
-          <p className="subtle-note">
-            In local development, your email arrives in the development mailbox.
-            Production uses your university inbox.
-          </p>
+          <button
+            type="button"
+            className="text-button"
+            disabled={busy || cooldown > 0 || !email}
+            onClick={() => void resend()}
+          >
+            {cooldown ? `Resend in ${cooldown}s` : "Resend code"}
+          </button>
         </form>
       )}
       <p className="form-switch">

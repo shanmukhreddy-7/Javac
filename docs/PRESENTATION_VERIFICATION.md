@@ -1,3 +1,5 @@
+> Historical verification of the retired presentation build. See VERIFICATION.md for the active Java build.
+
 # Presentation build verification
 
 Verified locally on 29 October 2026 using Node.js 24.22.1.

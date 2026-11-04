@@ -21,7 +21,7 @@ export default function TermsDialog({ onClose }: { onClose: () => void }) {
       <p>
         {presentationMode
           ? "This classroom build stores presentation profiles, selected skills, and campus requests. Sign-in uses email only, with no identity verification. Use fictional details; do not share private information. Payments and jobs are not available."
-          : "Module 1 stores your account, profile and selected skills. Passwords are hashed; email is used for account recovery."}
+          : "JAVAC stores your verified account, profile, skills, jobs, messages and reviews. Passwords are hashed. Rewards are paid directly between students; JAVAC records self-reported payment collection and does not transfer funds."}
       </p>
       <button className="button" onClick={() => dialog.current?.close()}>
         Understood

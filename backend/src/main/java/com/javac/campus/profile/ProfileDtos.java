@@ -30,7 +30,8 @@ public final class ProfileDtos {
       String accountStatus,
       Instant createdAt,
       List<Skill> skills,
-      int completion) {
+      int completion,
+      String role) {
     public static View from(StudentProfile p) {
       var u = p.getUser();
       int completion = 60;
@@ -50,7 +51,8 @@ public final class ProfileDtos {
           u.getAccountStatus(),
           u.getCreatedAt(),
           p.getSkills().stream().sorted(Comparator.comparing(Skill::getName)).toList(),
-          completion);
+          completion,
+          u.getRole());
     }
   }
 }

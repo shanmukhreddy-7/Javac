@@ -119,14 +119,14 @@ describe("private campus and demo", () => {
     expect(await screen.findByText("Login required")).toBeInTheDocument();
     expect(screen.queryByText("Private dashboard")).not.toBeInTheDocument();
   });
-  it("renders an explicit sample identity and future modules without fabricated earnings", async () => {
+  it("renders a sample identity and marketplace links without fabricated earnings", async () => {
     sessionStorage.setItem("javac-demo", "active");
     wrap(<Dashboard />);
     expect(await screen.findByText("Hey, Alex.")).toBeInTheDocument();
     expect(
       screen.getByText("Sample account · not verified"),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("Coming soon")).toHaveLength(4);
+    expect(screen.getByRole("link", {name:/Browse jobs/})).toHaveAttribute("href","/jobs");
     expect(mockedApi).not.toHaveBeenCalled();
   });
   it("temporarily edits the demo profile and saves skills without backend calls", async () => {

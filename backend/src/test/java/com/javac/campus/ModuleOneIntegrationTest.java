@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.javac.campus.auth.EmailDelivery;
+import com.javac.campus.main.JavacApplication;
 import com.javac.campus.user.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.util.*;
@@ -25,7 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
+@SpringBootTest(classes = JavacApplication.class)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional

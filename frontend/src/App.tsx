@@ -7,7 +7,13 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import PresentationRegister from "./pages/PresentationRegister";
 import PresentationLogin from "./pages/PresentationLogin";
-import Requests from "./pages/Requests";
+import Jobs from "./marketplace/Jobs";
+import PostJob from "./marketplace/PostJob";
+import JobDetail from "./marketplace/JobDetail";
+import Earnings from "./marketplace/Earnings";
+import Notifications from "./marketplace/Notifications";
+import Admin from "./marketplace/Admin";
+import StudentPage from "./marketplace/StudentPage";
 import { presentationMode } from "./services/mode";
 import VerifyEmail from "./pages/VerifyEmail";
 import PasswordRecovery from "./pages/PasswordRecovery";
@@ -69,7 +75,18 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
-              <Route path="/requests" element={<Requests />} />
+              <Route
+                path="/requests"
+                element={<Navigate to="/my-jobs" replace />}
+              />
+              <Route path="/jobs" element={<Jobs />} />
+              <Route path="/my-jobs" element={<Jobs />} />
+              <Route path="/jobs/new" element={<PostJob />} />
+              <Route path="/jobs/:id" element={<JobDetail />} />
+              <Route path="/earnings" element={<Earnings />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/students/:id" element={<StudentPage />} />
             </Route>
           </Route>
           <Route
