@@ -6,6 +6,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 /** The container serves the compiled React app; API routes are handled by Java controllers. */
 @Controller
 public class SpaController {
+  @GetMapping({"/presentation", "/presentation/"})
+  public String presentation() {
+    return "redirect:/presentation/index.html";
+  }
+
   @GetMapping({
     "/",
     "/login",

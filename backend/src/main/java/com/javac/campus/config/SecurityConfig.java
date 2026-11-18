@@ -50,6 +50,8 @@ public class SecurityConfig {
                         "/fonts/**",
                         "/javac-logo.png",
                         "/favicon.png",
+                        "/presentation",
+                        "/presentation/**",
                         "/login",
                         "/register",
                         "/verify-email",

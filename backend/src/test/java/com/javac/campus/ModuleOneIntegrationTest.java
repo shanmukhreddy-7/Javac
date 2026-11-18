@@ -40,6 +40,14 @@ class ModuleOneIntegrationTest {
   private final String password = "CampusStrong!2026";
   private AtomicReference<String> delivered;
 
+  @Test
+  void presentationIsPublicWhilePrivateApiRequiresLogin() throws Exception {
+    mvc.perform(get("/presentation"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/presentation/index.html"));
+    mvc.perform(get("/api/wallet")).andExpect(status().isUnauthorized());
+  }
+
   @BeforeEach
   void mailbox() {
     delivered = new AtomicReference<>();
