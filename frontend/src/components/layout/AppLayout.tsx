@@ -95,6 +95,10 @@ export default function AppLayout() {
             <Wallet size={19} />
             Earnings
           </NavLink>
+          <NavLink to="/wallet" onClick={() => setOpen(false)}>
+            <Wallet size={19} />
+            Wallet
+          </NavLink>
           <NavLink to="/notifications" onClick={() => setOpen(false)}>
             <Bell size={19} />
             Notifications

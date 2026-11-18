@@ -1,13 +1,17 @@
 package com.javac.campus.marketplace;
 
 import com.javac.campus.common.ApiException;
+import com.javac.campus.auth.EmailDelivery;
 import com.javac.campus.security.StudentPrincipal;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /** All participant, state and payment rules are enforced here, never trusted to the browser. */
 @Service
@@ -15,12 +19,21 @@ import org.springframework.transaction.annotation.Transactional;
 public class MarketplaceService {
   private final JdbcTemplate db;
   private final String adminEmail;
+  private final EmailDelivery email;
+  private final PasswordEncoder passwords;
+  private final SecureRandom random = new SecureRandom();
   private static final String VIEW =
-      "SELECT j.*, o.full_name AS owner_name, h.full_name AS helper_name FROM campus_jobs j JOIN student_profiles o ON o.user_id=j.owner_id LEFT JOIN student_profiles h ON h.user_id=j.helper_id ";
+      "SELECT j.id,j.owner_id,j.helper_id,j.title,j.description,j.category,j.reward,j.pickup,j.destination,j.deadline,j.status,j.payment_status,j.payment_method,j.collected_at,j.hidden,j.progress_step,j.created_at,j.updated_at,o.full_name AS owner_name,h.full_name AS helper_name FROM campus_jobs j JOIN student_profiles o ON o.user_id=j.owner_id LEFT JOIN student_profiles h ON h.user_id=j.helper_id ";
 
-  public MarketplaceService(JdbcTemplate db, @Value("${app.admin-email}") String adminEmail) {
+  public MarketplaceService(
+      JdbcTemplate db,
+      @Value("${app.admin-email}") String adminEmail,
+      EmailDelivery email,
+      PasswordEncoder passwords) {
     this.db = db;
     this.adminEmail = adminEmail;
+    this.email = email;
+    this.passwords = passwords;
   }
 
   private String now() {
@@ -49,7 +62,7 @@ public class MarketplaceService {
 
   private Map<String, Object> row(long id, boolean lock) {
     if (lock) db.queryForList("SELECT id FROM campus_jobs WHERE id=? FOR UPDATE", id);
-    var rows = db.queryForList(VIEW + "WHERE j.id=?", id);
+    var rows = db.queryForList("SELECT j.*, o.full_name AS owner_name, h.full_name AS helper_name FROM campus_jobs j JOIN student_profiles o ON o.user_id=j.owner_id LEFT JOIN student_profiles h ON h.user_id=j.helper_id WHERE j.id=?", id);
     if (rows.isEmpty()) throw new ApiException(404, "Job not found.");
     return rows.getFirst();
   }
@@ -58,6 +71,11 @@ public class MarketplaceService {
     var j = row(id, false);
     if (Boolean.TRUE.equals(j.get("hidden")) && !admin(p))
       throw new ApiException(404, "Job not found.");
+    j.remove("completion_otp_hash");
+    j.remove("completion_otp_expires_at");
+    j.remove("completion_otp_attempts");
+    var files=db.queryForList("SELECT original_name,content_type,file_size,xerox_mode,copies FROM job_attachments WHERE job_id=?",id);
+    if(!files.isEmpty()) j.putAll(files.getFirst());
     return j;
   }
 
@@ -109,7 +127,24 @@ public class MarketplaceService {
     return db.queryForList(VIEW + where + "ORDER BY j.id DESC LIMIT 30 OFFSET ?", args.toArray());
   }
 
-  public Map<String, Object> post(StudentPrincipal p, MarketDtos.Post r) {
+  public Map<String, Object> post(StudentPrincipal p, MarketDtos.Post r, MultipartFile file) {
+    boolean xerox="Xerox".equals(r.category());
+    if(xerox&&(file==null||file.isEmpty())) throw new ApiException(400,"Attach the document to your Xerox request.");
+    if(xerox&&(r.xeroxMode()==null||r.xeroxMode().isBlank()||r.xeroxCopies()==null)) throw new ApiException(400,"Choose black-and-white or color and enter the copy count.");
+    if(!xerox&&(file!=null&&!file.isEmpty()||r.xeroxMode()!=null&&!r.xeroxMode().isBlank()||r.xeroxCopies()!=null)) throw new ApiException(400,"File uploads and print options are only for Xerox requests.");
+    byte[] fileBytes=null; String fileType=null; String fileName=null;
+    if(xerox){
+      if(file.getSize()>2_097_152) throw new ApiException(413,"Xerox files must be 2 MB or smaller.");
+      try{fileBytes=file.getBytes();}catch(Exception e){throw new ApiException(400,"The Xerox file could not be read.");}
+      if(isPdf(fileBytes)) fileType="application/pdf";
+      else if(isPng(fileBytes)) fileType="image/png";
+      else if(isJpeg(fileBytes)) fileType="image/jpeg";
+      else throw new ApiException(400,"Upload a PDF, PNG, or JPEG file.");
+      String source=Objects.toString(file.getOriginalFilename(),"xerox-file").replace('\\','/');
+      fileName=source.substring(source.lastIndexOf('/')+1).replaceAll("[^A-Za-z0-9._ -]","_");
+      if(fileName.isBlank()) fileName="xerox-file";
+      if(fileName.length()>255) fileName=fileName.substring(0,255);
+    }
     String deadline;
     try {
       var parsed = Instant.parse(r.deadline());
@@ -142,10 +177,29 @@ public class MarketplaceService {
           return ps;
         },
         key);
-    return detail(p, Objects.requireNonNull(key.getKey()).longValue());
+    long jobId=Objects.requireNonNull(key.getKey()).longValue();
+    if(xerox) db.update("INSERT INTO job_attachments(job_id,original_name,content_type,file_size,xerox_mode,copies,file_data) VALUES(?,?,?,?,?,?,?)",
+        jobId,fileName,fileType,fileBytes.length,r.xeroxMode(),r.xeroxCopies(),fileBytes);
+    return detail(p, jobId);
   }
 
-  public Map<String, Object> act(StudentPrincipal p, long id, String action) {
+  private boolean isPdf(byte[] b){return b.length>=5&&b[0]=='%'&&b[1]=='P'&&b[2]=='D'&&b[3]=='F'&&b[4]=='-';}
+  private boolean isPng(byte[] b){return b.length>8&&(b[0]&255)==137&&b[1]==80&&b[2]==78&&b[3]==71;}
+  private boolean isJpeg(byte[] b){return b.length>3&&(b[0]&255)==255&&(b[1]&255)==216&&(b[2]&255)==255;}
+
+  public Map<String,Object> attachment(StudentPrincipal p,long id){
+    var j=participant(p,id,false);
+    if(Boolean.TRUE.equals(j.get("hidden"))) throw new ApiException(404,"Job not found.");
+    return oneAttachment(id);
+  }
+  private Map<String,Object> oneAttachment(long id){
+    var rows=db.queryForList("SELECT original_name,content_type,file_data FROM job_attachments WHERE job_id=?",id);
+    if(rows.isEmpty()) throw new ApiException(404,"This job has no uploaded file.");
+    return rows.getFirst();
+  }
+
+  public Map<String, Object> act(StudentPrincipal p, long id, MarketDtos.Action request) {
+    String action=request.action(), actionStep=request.step(), actionOtp=request.otp();
     var j = participantOrAccept(p, id, action);
     String status = String.valueOf(j.get("status")), next;
     if (Boolean.TRUE.equals(j.get("hidden")))
@@ -156,7 +210,13 @@ public class MarketplaceService {
         if (!"OPEN".equals(status)
             || !Instant.parse(String.valueOf(j.get("deadline"))).isAfter(Instant.now()))
           throw new ApiException(409, "This job is no longer available.");
-        db.update("UPDATE campus_jobs SET helper_id=? WHERE id=?", p.id(), id);
+        String code=String.format(Locale.ROOT,"%06d",random.nextInt(1_000_000));
+        String hash=passwords.encode(code);
+        String expiry=Instant.now().plusSeconds(8*60*60).toString();
+        db.update("UPDATE campus_jobs SET helper_id=?,completion_otp_hash=?,completion_otp_expires_at=?,completion_otp_attempts=0 WHERE id=?",p.id(),hash,expiry,id);
+        String ownerEmail=db.queryForObject("SELECT email FROM users WHERE id=?",String.class,number(j,"owner_id"));
+        email.send(ownerEmail,"JAVAC delivery confirmation code",
+            "Your delivery code for \""+j.get("title")+"\" is "+code+". Share it with the helper only after you receive your order. It expires in 8 hours.");
         next = "ACCEPTED";
       }
       case "start" -> {
@@ -165,13 +225,34 @@ public class MarketplaceService {
         next = "IN_PROGRESS";
       }
       case "deliver" -> {
-        if (!isHelper(j, p.id()) || !"IN_PROGRESS".equals(status))
-          throw new ApiException(409, "Start the job before marking it delivered.");
-        next = "DELIVERED";
+        throw new ApiException(400,"Use the delivery checklist to update progress.");
+      }
+      case "progress" -> {
+        if(!isHelper(j,p.id())||!"IN_PROGRESS".equals(status)) throw new ApiException(409,"Only the accepted helper can update an active job.");
+        var steps="Xerox".equals(j.get("category"))
+            ? List.of("FILE_RECEIVED","XEROX_COMPLETE","ON_THE_WAY","AT_BLOCK")
+            : List.of("PICKED_UP","ON_THE_WAY","AT_BLOCK");
+        String current=Objects.toString(j.get("progress_step"),"NOT_STARTED");
+        int index="NOT_STARTED".equals(current)?-1:steps.indexOf(current);
+        if(index< -1||index+1>=steps.size()||!Objects.equals(steps.get(index+1),actionStep)) throw new ApiException(409,"Complete the next checklist step in order.");
+        next=actionStep.equals("AT_BLOCK")?"DELIVERED":"IN_PROGRESS";
+        db.update("UPDATE campus_jobs SET progress_step=?,status=?,updated_at=? WHERE id=?",actionStep,next,now(),id);
+        var updated=detail(p,id); both(updated,"Delivery update: "+progressLabel(actionStep)+" — "+j.get("title"));
+        return updated;
       }
       case "complete" -> {
-        if (!isOwner(j, p.id()) || !"DELIVERED".equals(status))
-          throw new ApiException(409, "Only the requester can confirm a delivered job.");
+        if (!isHelper(j, p.id()) || !"DELIVERED".equals(status))
+          throw new ApiException(409, "Only the accepted helper can enter the requester's code at handoff.");
+        String saved=Objects.toString(j.get("completion_otp_hash"),"");
+        Object expires=j.get("completion_otp_expires_at");
+        int attempts=((Number)j.get("completion_otp_attempts")).intValue();
+        if(saved.isBlank()||attempts>=5||expires==null||!Instant.parse(expires.toString()).isAfter(Instant.now()))
+          return otpFailure(p,id,"The delivery code has expired or is locked. Ask the requester to contact support.");
+        String supplied=actionOtp==null?"":actionOtp;
+        if(!passwords.matches(supplied,saved)){
+          db.update("UPDATE campus_jobs SET completion_otp_attempts=completion_otp_attempts+1 WHERE id=?",id);
+          return otpFailure(p,id,"That code is incorrect. Check with the requester and try again.");
+        }
         next = "COMPLETED";
       }
       case "cancel" -> {
@@ -181,11 +262,15 @@ public class MarketplaceService {
       }
       default -> throw new ApiException(400, "Unknown action.");
     }
-    db.update("UPDATE campus_jobs SET status=?,updated_at=? WHERE id=?", next, now(), id);
+    if("complete".equals(action)) db.update("UPDATE campus_jobs SET status=?,completion_otp_hash=NULL,completion_otp_expires_at=NULL,updated_at=? WHERE id=?",next,now(),id);
+    else db.update("UPDATE campus_jobs SET status=?,updated_at=? WHERE id=?", next, now(), id);
     var result = detail(p, id);
     both(result, "Job " + next.toLowerCase(Locale.ROOT).replace('_', ' ') + ": " + j.get("title"));
     return result;
   }
+
+  private Map<String,Object> otpFailure(StudentPrincipal p,long id,String message){var result=detail(p,id);result.put("otp_error",message);return result;}
+  private String progressLabel(String step){return switch(step){case "FILE_RECEIVED"->"File received";case "XEROX_COMPLETE"->"Xerox complete";case "PICKED_UP"->"Order picked up";case "ON_THE_WAY"->"On the way";case "AT_BLOCK"->"At your block";default->"Updated";};}
 
   private Map<String, Object> participantOrAccept(StudentPrincipal p, long id, String action) {
     return "accept".equals(action) ? row(id, true) : participant(p, id, true);

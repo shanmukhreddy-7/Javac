@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
-export function useRemote<T>(path: string) {
+export function useRemote<T>(path: string, pollMs = 0) {
   const [data, setData] = useState<T | null>(null),
     [error, setError] = useState("");
   const generation = useRef(0);
@@ -22,13 +22,13 @@ export function useRemote<T>(path: string) {
     const tick = () => {
       if (!document.hidden) void reload();
     };
-    const timer = setInterval(tick, 5000);
+    const timer = pollMs > 0 ? window.setInterval(tick, pollMs) : undefined;
     window.addEventListener("focus", tick);
     return () => {
       generation.current++;
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
       window.removeEventListener("focus", tick);
     };
-  }, [reload]);
+  }, [reload, pollMs]);
   return { data, error, reload };
 }

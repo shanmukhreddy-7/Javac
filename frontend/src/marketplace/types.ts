@@ -5,6 +5,7 @@ export const categories = [
   "Programming",
   "Design",
   "Events",
+  "Xerox",
   "Other",
 ];
 export type JobStatus =
@@ -27,6 +28,12 @@ export interface Job {
   payment_method: string | null;
   created_at: string;
   hidden: boolean;
+  progress_step?: string;
+  original_name?: string;
+  content_type?: string;
+  file_size?: number;
+  xerox_mode?: "BLACK_WHITE" | "COLOR";
+  copies?: number;
 }
 export interface Notice {
   id: number;
@@ -54,3 +61,17 @@ export const money = (n: number) =>
     maximumFractionDigits: 2,
   }).format(n);
 export const statusLabel = (s: string) => s.toLowerCase().replaceAll("_", " ");
+
+export const deliverySteps = (category: string) =>
+  category === "Xerox"
+    ? [
+        ["FILE_RECEIVED", "File received"],
+        ["XEROX_COMPLETE", "Xerox complete"],
+        ["ON_THE_WAY", "On the way"],
+        ["AT_BLOCK", "At your block"],
+      ]
+    : [
+        ["PICKED_UP", "Order picked up"],
+        ["ON_THE_WAY", "On the way"],
+        ["AT_BLOCK", "At your block"],
+      ];

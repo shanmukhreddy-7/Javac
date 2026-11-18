@@ -2,7 +2,10 @@ package com.javac.campus.marketplace;
 
 import com.javac.campus.security.StudentPrincipal;
 import jakarta.validation.Valid;
+import java.math.BigDecimal;
 import java.util.*;
+import org.springframework.http.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -10,9 +13,11 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api")
 public class MarketplaceController {
   private final MarketplaceService market;
+  private final WalletService wallet;
 
-  public MarketplaceController(MarketplaceService market) {
+  public MarketplaceController(MarketplaceService market, WalletService wallet) {
     this.market = market;
+    this.wallet = wallet;
   }
 
   @GetMapping("/jobs")
@@ -25,11 +30,32 @@ public class MarketplaceController {
     return market.browse(p, q, category, scope, page);
   }
 
-  @PostMapping("/jobs")
+  @PostMapping(value = "/jobs", consumes = MediaType.APPLICATION_JSON_VALUE)
   @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
   public Object post(
       @AuthenticationPrincipal StudentPrincipal p, @Valid @RequestBody MarketDtos.Post r) {
-    return market.post(p, r);
+    return market.post(p, r, null);
+  }
+
+  @PostMapping(value = "/jobs", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  public Object postWithFile(
+      @AuthenticationPrincipal StudentPrincipal p,
+      @Valid @RequestPart("request") MarketDtos.Post r,
+      @RequestPart(value = "file", required = false) MultipartFile file) {
+    return market.post(p, r, file);
+  }
+
+  @GetMapping("/jobs/{id}/file")
+  public ResponseEntity<byte[]> jobFile(
+      @AuthenticationPrincipal StudentPrincipal p, @PathVariable long id) {
+    var f = market.attachment(p, id);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType((String) f.get("content_type")))
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=javac-xerox-file")
+        .header("X-Content-Type-Options", "nosniff")
+        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+        .body((byte[]) f.get("file_data"));
   }
 
   @GetMapping("/jobs/{id}")
@@ -42,7 +68,7 @@ public class MarketplaceController {
       @AuthenticationPrincipal StudentPrincipal p,
       @PathVariable long id,
       @Valid @RequestBody MarketDtos.Action r) {
-    return market.act(p, id, r.action());
+    return market.act(p, id, r);
   }
 
   @GetMapping("/jobs/{id}/messages")
@@ -71,6 +97,61 @@ public class MarketplaceController {
   @GetMapping("/earnings")
   public Object earnings(@AuthenticationPrincipal StudentPrincipal p) {
     return market.earnings(p);
+  }
+
+  @GetMapping("/wallet")
+  public Object wallet(@AuthenticationPrincipal StudentPrincipal p) {
+    return wallet.view(p);
+  }
+
+  @PostMapping(value = "/wallet/topups", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  public Object topup(
+      @AuthenticationPrincipal StudentPrincipal p,
+      @RequestParam BigDecimal amount,
+      @RequestParam String utr,
+      @RequestPart(value = "proof", required = false) MultipartFile proof) {
+    return wallet.topup(p, amount, utr, proof);
+  }
+
+  @PostMapping("/wallet/withdrawals")
+  @ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+  public Object withdrawal(
+      @AuthenticationPrincipal StudentPrincipal p, @Valid @RequestBody WalletDtos.Withdrawal r) {
+    return wallet.withdraw(p, r);
+  }
+
+  @GetMapping("/admin/wallet")
+  public Object walletQueue(@AuthenticationPrincipal StudentPrincipal p) {
+    return wallet.adminQueue(p);
+  }
+
+  @GetMapping("/admin/wallet/topups/{id}/proof")
+  public ResponseEntity<byte[]> topupProof(
+      @AuthenticationPrincipal StudentPrincipal p, @PathVariable long id) {
+    var f = wallet.topupProof(p, id);
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType((String) f.get("proof_type")))
+        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=payment-proof")
+        .header("X-Content-Type-Options", "nosniff")
+        .header(HttpHeaders.CACHE_CONTROL, "private, no-store")
+        .body((byte[]) f.get("proof_data"));
+  }
+
+  @PostMapping("/admin/wallet/topups/{id}/review")
+  public void reviewTopup(
+      @AuthenticationPrincipal StudentPrincipal p,
+      @PathVariable long id,
+      @Valid @RequestBody WalletDtos.TopupReview r) {
+    wallet.reviewTopup(p, id, r);
+  }
+
+  @PostMapping("/admin/wallet/withdrawals/{id}/review")
+  public void reviewWithdrawal(
+      @AuthenticationPrincipal StudentPrincipal p,
+      @PathVariable long id,
+      @Valid @RequestBody WalletDtos.WithdrawalReview r) {
+    wallet.reviewWithdrawal(p, id, r);
   }
 
   @PostMapping("/jobs/{id}/collection")

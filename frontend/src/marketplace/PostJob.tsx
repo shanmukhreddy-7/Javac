@@ -7,14 +7,16 @@ import type { Job } from "./types";
 export default function PostJob() {
   const navigate = useNavigate();
   const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [category, setCategory] = useState("Food pickup"),
+    [fileName, setFileName] = useState("");
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     setBusy(true);
     setError("");
     try {
-      const job = await api<Job>("/api/jobs", "POST", {
+      const request = {
         title: String(form.get("title")).trim(),
         description: String(form.get("description")).trim(),
         category: form.get("category"),
@@ -22,7 +24,21 @@ export default function PostJob() {
         pickup: String(form.get("pickup")).trim(),
         destination: String(form.get("destination")).trim(),
         deadline: new Date(String(form.get("deadline"))).toISOString(),
-      });
+        xeroxMode: category === "Xerox" ? form.get("xeroxMode") : null,
+        xeroxCopies: category === "Xerox" ? Number(form.get("xeroxCopies")) : null,
+      };
+      let job: Job;
+      if (category === "Xerox") {
+        const file = form.get("file");
+        if (!(file instanceof File) || file.size === 0) throw new Error("Choose the file to print.");
+        if (file.size > 2 * 1024 * 1024) throw new Error("The file must be 2 MB or smaller.");
+        const payload = new FormData();
+        payload.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
+        payload.append("file", file);
+        job = await api<Job>("/api/jobs", "POST", payload);
+      } else {
+        job = await api<Job>("/api/jobs", "POST", request);
+      }
       navigate(`/jobs/${job.id}`);
     } catch (e) {
       setError((e as Error).message);
@@ -62,9 +78,9 @@ export default function PostJob() {
         <div className="market-two">
           <label>
             Category
-            <select name="category">
+            <select name="category" value={category} onChange={(e) => setCategory(e.target.value)}>
               {categories.map((c) => (
-                <option key={c}>{c}</option>
+                <option key={c} value={c}>{c === "Xerox" ? "Xerox pickup" : c}</option>
               ))}
             </select>
           </label>
@@ -99,6 +115,29 @@ export default function PostJob() {
             />
           </label>
         </div>
+        {category === "Xerox" ? (
+          <div className="xerox-request-fields">
+            <div className="market-two">
+              <label>
+                Print type
+                <select name="xeroxMode" required defaultValue="BLACK_WHITE">
+                  <option value="BLACK_WHITE">Black and white</option>
+                  <option value="COLOR">Color</option>
+                </select>
+              </label>
+              <label>
+                Number of copies
+                <input name="xeroxCopies" type="number" min="1" max="100" required defaultValue="1" />
+              </label>
+            </div>
+            <label>
+              File to print (PDF, PNG, or JPG; up to 2 MB)
+              <input name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" required onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} />
+              {fileName ? <small className="subtle-note">Selected: {fileName}</small> : null}
+            </label>
+            <p className="subtle-note">The file is private to this request and can only be opened by you and the accepted helper.</p>
+          </div>
+        ) : null}
         <label>
           Deadline
           <input

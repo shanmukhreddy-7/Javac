@@ -1,25 +1,27 @@
 import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import PresentationRegister from "./pages/PresentationRegister";
-import PresentationLogin from "./pages/PresentationLogin";
-import Jobs from "./marketplace/Jobs";
-import PostJob from "./marketplace/PostJob";
-import JobDetail from "./marketplace/JobDetail";
-import Earnings from "./marketplace/Earnings";
-import Notifications from "./marketplace/Notifications";
-import Admin from "./marketplace/Admin";
-import StudentPage from "./marketplace/StudentPage";
+const Landing = lazy(() => import("./pages/Landing"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const PresentationRegister = lazy(() => import("./pages/PresentationRegister"));
+const PresentationLogin = lazy(() => import("./pages/PresentationLogin"));
+const Jobs = lazy(() => import("./marketplace/Jobs"));
+const PostJob = lazy(() => import("./marketplace/PostJob"));
+const JobDetail = lazy(() => import("./marketplace/JobDetail"));
+const Earnings = lazy(() => import("./marketplace/Earnings"));
+const Wallet = lazy(() => import("./marketplace/Wallet"));
+const Notifications = lazy(() => import("./marketplace/Notifications"));
+const Admin = lazy(() => import("./marketplace/Admin"));
+const StudentPage = lazy(() => import("./marketplace/StudentPage"));
 import { presentationMode } from "./services/mode";
-import VerifyEmail from "./pages/VerifyEmail";
-import PasswordRecovery from "./pages/PasswordRecovery";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
+const VerifyEmail = lazy(() => import("./pages/VerifyEmail"));
+const PasswordRecovery = lazy(() => import("./pages/PasswordRecovery"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
 import { useScrollReset } from "./hooks/useScrollReset";
 function ScrollReset() {
   useScrollReset();
@@ -30,6 +32,7 @@ export default function App() {
     <BrowserRouter>
       <ScrollReset />
       <AuthProvider>
+        <Suspense fallback={<div className="route-loader" role="status">Opening your campus…</div>}>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route
@@ -84,6 +87,7 @@ export default function App() {
               <Route path="/jobs/new" element={<PostJob />} />
               <Route path="/jobs/:id" element={<JobDetail />} />
               <Route path="/earnings" element={<Earnings />} />
+              <Route path="/wallet" element={<Wallet />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/students/:id" element={<StudentPage />} />
@@ -103,6 +107,7 @@ export default function App() {
             }
           />
         </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );

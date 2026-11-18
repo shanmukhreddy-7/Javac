@@ -19,6 +19,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.mock.web.MockPart;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
@@ -50,6 +52,11 @@ class CampusWorkflowTest {
             "job_reports",
             "job_messages",
             "notifications",
+            "wallet_transactions",
+            "wallet_withdrawal_requests",
+            "wallet_topup_requests",
+            "wallet_accounts",
+            "job_attachments",
             "campus_jobs",
             "email_otps",
             "email_verification_tokens",
@@ -60,7 +67,9 @@ class CampusWorkflowTest {
     codes.clear();
     doAnswer(
             i -> {
-              codes.put(i.getArgument(0), i.getArgument(2));
+              String text=i.getArgument(2);
+              var matcher=java.util.regex.Pattern.compile("(?<![0-9])([0-9]{6})(?![0-9])").matcher(text);
+              if(matcher.find()) codes.put(i.getArgument(0), matcher.group(1));
               return null;
             })
         .when(mail)
@@ -150,6 +159,11 @@ class CampusWorkflowTest {
         .andExpect(status().is(expected));
   }
 
+  ResultActions action(Account a,long id,String action,String step,String otp) throws Exception {
+    var body=new HashMap<String,Object>();body.put("action",action);if(step!=null)body.put("step",step);if(otp!=null)body.put("otp",otp);
+    return send("/api/jobs/"+id+"/actions",body,a.session());
+  }
+
   @Test
   void otpIsHashedAndAttemptLimitPersists() throws Exception {
     register("alex");
@@ -201,9 +215,17 @@ class CampusWorkflowTest {
         .isEqualTo(1);
     act(owner, id, "start", 409);
     act(helper, id, "start", 200);
-    act(helper, id, "complete", 409);
-    act(helper, id, "deliver", 200);
-    act(owner, id, "complete", 200);
+    String deliveryCode=codes.get("owner@example.edu");
+    assertThat(deliveryCode).matches("[0-9]{6}");
+    String wrong=deliveryCode.equals("000000")?"999999":"000000";
+    action(helper,id,"progress","PICKED_UP",null).andExpect(status().isOk());
+    action(helper,id,"progress","ON_THE_WAY",null).andExpect(status().isOk());
+    action(helper,id,"progress","AT_BLOCK",null).andExpect(status().isOk());
+    var publicDetail=mvc.perform(get("/api/jobs/"+id).session(helper.session())).andExpect(status().isOk()).andReturn();
+    assertThat(json.readTree(publicDetail.getResponse().getContentAsString()).has("completion_otp_hash")).isFalse();
+    action(helper,id,"complete",null,wrong).andExpect(status().isOk()).andExpect(jsonPath("$.otp_error").exists());
+    action(owner,id,"complete",null,deliveryCode).andExpect(status().isConflict());
+    action(helper,id,"complete",null,deliveryCode).andExpect(status().isOk());
     var earned = data(mvc.perform(get("/api/earnings").session(helper.session())));
     assertThat(earned.get("pending").decimalValue()).isEqualByComparingTo("30");
     send("/api/jobs/" + id + "/collection", Map.of("method", "PHONEPE"), owner.session())
@@ -229,6 +251,25 @@ class CampusWorkflowTest {
         .andExpect(status().isConflict());
     send("/api/jobs/" + id + "/messages", Map.of("body", "Closed"), helper.session())
         .andExpect(status().isConflict());
+  }
+
+  @Test
+  void welcomeCreditTopupAndWithdrawalAreAdminReviewed() throws Exception {
+    var student=account("walletstudent");var admin=account("admin");
+    assertThat(data(mvc.perform(get("/api/wallet").session(student.session()))).get("balance").decimalValue()).isEqualByComparingTo("100.00");
+    var proof=new MockMultipartFile("proof","proof.jpg","image/jpeg",new byte[]{(byte)255,(byte)216,(byte)255,(byte)224,1,2});
+    mvc.perform(multipart("/api/wallet/topups").file(proof).param("amount","250.00").param("utr","abc123456789").session(student.session()).with(csrf()))
+        .andExpect(status().isCreated());
+    assertThat(data(mvc.perform(get("/api/wallet").session(student.session()))).get("balance").decimalValue()).isEqualByComparingTo("100.00");
+    long topupId=db.queryForObject("SELECT id FROM wallet_topup_requests WHERE utr='ABC123456789'",Long.class);
+    mvc.perform(get("/api/admin/wallet/topups/"+topupId+"/proof").session(admin.session())).andExpect(status().isOk()).andExpect(header().string("X-Content-Type-Options","nosniff"));
+    send("/api/admin/wallet/topups/"+topupId+"/review",Map.of("status","APPROVED","note","Verified"),admin.session()).andExpect(status().isOk());
+    assertThat(data(mvc.perform(get("/api/wallet").session(student.session()))).get("balance").decimalValue()).isEqualByComparingTo("350.00");
+    send("/api/wallet/withdrawals",Map.of("amount",40,"upiId","student@bank"),student.session()).andExpect(status().isCreated());
+    assertThat(data(mvc.perform(get("/api/wallet").session(student.session()))).get("balance").decimalValue()).isEqualByComparingTo("310.00");
+    long withdrawalId=db.queryForObject("SELECT id FROM wallet_withdrawal_requests",Long.class);
+    send("/api/admin/wallet/withdrawals/"+withdrawalId+"/review",Map.of("status","REJECTED","note","Test refund"),admin.session()).andExpect(status().isOk());
+    assertThat(data(mvc.perform(get("/api/wallet").session(student.session()))).get("balance").decimalValue()).isEqualByComparingTo("350.00");
   }
 
   @Test

@@ -15,9 +15,9 @@ export async function api<T>(
   body?: unknown,
 ): Promise<T> {
   try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const isMultipart = typeof FormData !== "undefined" && body instanceof FormData;
+    const headers: Record<string, string> = {};
+    if (!isMultipart) headers["Content-Type"] = "application/json";
     if (method !== "GET") {
       const csrf = await fetch(base + "/api/auth/csrf", {
         credentials: "include",
@@ -38,7 +38,7 @@ export async function api<T>(
       credentials: "include",
       cache: "no-store",
       signal: AbortSignal.timeout(30000),
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isMultipart ? body : JSON.stringify(body),
     });
     const result = await response.json().catch(() => ({
       message: "The server returned an unreadable response.",

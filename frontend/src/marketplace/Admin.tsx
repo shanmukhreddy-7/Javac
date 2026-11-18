@@ -26,6 +26,10 @@ export default function Admin() {
     jobs: Job[];
     reports: Report[];
   }>("/api/admin");
+  const { data: walletQueue, error: walletError, reload: reloadWallet } = useRemote<{
+    topups: { id:number; user_id:number; full_name:string; email:string; amount:number; utr:string; proof_type:string|null; status:string; created_at:string }[];
+    withdrawals: { id:number; user_id:number; full_name:string; email:string; amount:number; upi_id:string; status:string; payment_utr:string|null; created_at:string }[];
+  }>("/api/admin/wallet",30000);
   const [busy, setBusy] = useState(false),
     [actionError, setError] = useState("");
   async function act(path: string, method = "POST", body?: unknown) {
@@ -35,6 +39,7 @@ export default function Admin() {
     try {
       await api(path, method, body);
       await reload();
+      await reloadWallet();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -47,7 +52,7 @@ export default function Admin() {
     <section className="market-page">
       <span className="eyebrow">A HEALTHIER CAMPUS COMMUNITY</span>
       <h1>Admin dashboard.</h1>
-      <Feedback message={error || actionError} />
+      <Feedback message={error || walletError || actionError} />
       <section className="market-panel">
         <h2>Student accounts</h2>
         <p>
@@ -78,6 +83,25 @@ export default function Admin() {
             ) : null}
           </article>
         ))}
+      </section>
+      <section className="market-panel">
+        <h2>Wallet top-ups</h2>
+        <p>Verify each payment in the receiving account before approving a request.</p>
+        {walletQueue?.topups.length === 0 ? <p>No top-ups to review.</p> : null}
+        {walletQueue?.topups.map((t) => <article className="admin-row wallet-admin-row" key={t.id}>
+          <div><strong>{t.full_name} · {new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR"}).format(Number(t.amount))}</strong><small>{t.email} · UTR {t.utr} · {new Date(t.created_at).toLocaleString()}</small>
+            {t.proof_type ? <a className="text-link" href={`/api/admin/wallet/topups/${t.id}/proof`} target="_blank" rel="noreferrer">View screenshot</a> : <small>No screenshot attached</small>}</div>
+          {t.status === "PENDING" ? <div className="market-actions"><button className="button" disabled={busy} onClick={() => void act(`/api/admin/wallet/topups/${t.id}/review`,"POST",{status:"APPROVED",note:"Payment verified by admin"})}>Verify & add funds</button><button className="button button-outline" disabled={busy} onClick={() => void act(`/api/admin/wallet/topups/${t.id}/review`,"POST",{status:"REJECTED",note:"Payment could not be verified"})}>Reject</button></div> : <span className={`job-status status-${t.status.toLowerCase()}`}>{t.status}</span>}
+        </article>)}
+      </section>
+      <section className="market-panel">
+        <h2>Withdrawal requests</h2>
+        <p>Send the payout to the listed UPI ID, then record its payment UTR here.</p>
+        {walletQueue?.withdrawals.length === 0 ? <p>No withdrawals to review.</p> : null}
+        {walletQueue?.withdrawals.map((w) => <article className="admin-row wallet-admin-row" key={w.id}>
+          <div><strong>{w.full_name} · {new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR"}).format(Number(w.amount))}</strong><small>{w.email} · {w.upi_id} · {new Date(w.created_at).toLocaleString()}</small></div>
+          {w.status === "PENDING" ? <div className="market-actions"><button className="button" disabled={busy} onClick={() => { const paymentUtr=window.prompt("Enter the UTR for the payout you have sent:")?.trim(); if(paymentUtr) void act(`/api/admin/wallet/withdrawals/${w.id}/review`,"POST",{status:"PAID",paymentUtr,note:"Paid by admin"}); }}>Mark paid</button><button className="button button-outline" disabled={busy} onClick={() => void act(`/api/admin/wallet/withdrawals/${w.id}/review`,"POST",{status:"REJECTED",note:"Withdrawal request declined"})}>Reject & return balance</button></div> : <span className={`job-status status-${w.status.toLowerCase()}`}>{w.status}{w.payment_utr ? ` · ${w.payment_utr}` : ""}</span>}
+        </article>)}
       </section>
       <section className="market-panel">
         <h2>Reports</h2>

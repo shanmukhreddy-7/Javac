@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+export const config = { api: { bodyParser: false, sizeLimit: "4mb" } };
 /** Same-origin gateway only. Every business/auth rule runs in the Java backend. */
 export default async function campus(
   req: IncomingMessage & { body?: unknown },
@@ -24,24 +25,32 @@ export default async function campus(
     if (!path.startsWith("/api/") || path.includes(".."))
       throw new Error("Invalid API route");
     const method = req.method ?? "GET";
-    const headers = new Headers({ "Content-Type": "application/json" });
+    const headers = new Headers();
+    const contentType = req.headers["content-type"];
+    if (typeof contentType === "string") headers.set("Content-Type", contentType);
     for (const name of ["cookie", "origin", "x-csrf-token"]) {
       const value = req.headers[name];
       if (typeof value === "string") headers.set(name, value);
     }
-    let data: string | undefined;
+    let data: Uint8Array | undefined;
     if (method !== "GET" && method !== "HEAD") {
-      if (req.body !== undefined)
-        data =
-          typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-      else {
-        data = "";
-        for await (const chunk of req) {
-          data += chunk.toString();
-          if (Buffer.byteLength(data) > 32000) throw new Error("Too large");
-        }
+      if (req.body !== undefined) {
+        if (typeof req.body === "string") data = Buffer.from(req.body);
+        else if (Buffer.isBuffer(req.body)) data = req.body;
+        else data = Buffer.from(JSON.stringify(req.body));
       }
-      if (data && Buffer.byteLength(data) > 32000) {
+      else {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of req) {
+          const part=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);
+          size += part.length;
+          if (size > 4 * 1024 * 1024) throw new Error("Too large");
+          chunks.push(part);
+        }
+        data = Buffer.concat(chunks);
+      }
+      if (data && data.byteLength > 4 * 1024 * 1024) {
         res.statusCode = 413;
         res.end(JSON.stringify({ message: "Request too large." }));
         return;
@@ -56,7 +65,7 @@ export default async function campus(
       {
         method,
         headers,
-        body: data,
+        body: data ? new Blob([data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer]) : undefined,
         redirect: "manual",
         signal: AbortSignal.timeout(25000),
       },

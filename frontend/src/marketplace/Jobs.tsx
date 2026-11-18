@@ -14,6 +14,7 @@ export default function Jobs() {
     [page, setPage] = useState(0);
   const { data, error, reload } = useRemote<Job[]>(
     `/api/jobs?scope=${mine ? "mine" : "all"}&q=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}&page=${page}`,
+    15000,
   );
   if (isDemo)
     return (

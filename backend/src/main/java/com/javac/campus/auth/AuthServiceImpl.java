@@ -5,6 +5,7 @@ import com.javac.campus.common.ApiException;
 import com.javac.campus.profile.*;
 import com.javac.campus.security.StudentPrincipal;
 import com.javac.campus.user.*;
+import com.javac.campus.marketplace.WalletService;
 import java.time.*;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +26,7 @@ public class AuthServiceImpl implements AuthService {
   private final String frontend;
   private final String dummyHash;
   private final OtpService otp;
+  private final WalletService wallet;
   private final String verificationMode, adminEmail;
 
   public AuthServiceImpl(
@@ -38,8 +40,10 @@ public class AuthServiceImpl implements AuthService {
       @Value("${app.frontend-url}") String frontend,
       OtpService otp,
       @Value("${app.verification-mode:otp}") String verificationMode,
-      @Value("${app.admin-email}") String adminEmail) {
+      @Value("${app.admin-email}") String adminEmail,
+      WalletService wallet) {
     this.otp = otp;
+    this.wallet = wallet;
     this.verificationMode = verificationMode;
     this.adminEmail = adminEmail;
     this.users = users;
@@ -88,6 +92,7 @@ public class AuthServiceImpl implements AuthService {
             r.registrationNumber().toUpperCase(Locale.ROOT),
             r.department().trim(),
             r.studyYear()));
+    wallet.createWelcomeCredit(user.getId());
     if (verificationMode.equals("link")) issueVerification(user);
     else otp.issue(address, "VERIFY", r.fullName());
   }

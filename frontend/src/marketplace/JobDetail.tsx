@@ -4,23 +4,29 @@ import { api } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { Feedback } from "../components/ui/Feedback";
 import { useRemote } from "./useRemote";
-import { money, statusLabel } from "./types";
+import { deliverySteps, money, statusLabel } from "./types";
 import type { Job, Message, Review } from "./types";
 export default function JobDetail() {
   const { id } = useParams();
   const { student } = useAuth();
-  const { data: j, error, reload } = useRemote<Job>(`/api/jobs/${id}`);
+  const { data: j, error, reload } = useRemote<Job>(`/api/jobs/${id}`, 5000);
   const [busy, setBusy] = useState(false),
     [actionError, setError] = useState(""),
-    [success, setSuccess] = useState("");
+    [success, setSuccess] = useState(""),
+    [otp, setOtp] = useState("");
   const owner = j?.owner_id === student?.id,
     helper = j?.helper_id === student?.id,
     participant = owner || helper;
-  async function act(action: string) {
+  const steps = j ? deliverySteps(j.category) : [];
+  const progressIndex = j ? steps.findIndex(([key]) => key === j.progress_step) : -1;
+  async function act(action: string, details: Record<string, string> = {}) {
     setBusy(true);
     setError("");
     try {
-      await api(`/api/jobs/${id}/actions`, "POST", { action });
+      const result = await api<Job & { otp_error?: string }>(`/api/jobs/${id}/actions`, "POST", { action, ...details });
+      if (result.otp_error) setError(result.otp_error);
+      else if (action === "complete") setSuccess("The job is complete. Thanks for helping on campus!");
+      if (action === "complete") setOtp("");
       await reload();
     } catch (e) {
       setError((e as Error).message);
@@ -99,6 +105,13 @@ export default function JobDetail() {
             </dd>
           </div>
         </dl>
+        {j.category === "Xerox" ? (
+          <div className="xerox-summary">
+            <div><span>Print type</span><strong>{j.xerox_mode === "COLOR" ? "Color" : "Black and white"}</strong></div>
+            <div><span>Copies</span><strong>{j.copies ?? "—"}</strong></div>
+            {j.original_name ? <a className="button button-outline small" href={`/api/jobs/${j.id}/file`}>Download {j.original_name}</a> : null}
+          </div>
+        ) : null}
         <p className="subtle-note">
           Pay directly through cash, PhonePe or Paytm. JAVAC records rewards and
           self-reported collection; it does not transfer or verify payments.
@@ -111,33 +124,6 @@ export default function JobDetail() {
               onClick={() => void act("accept")}
             >
               Accept job
-            </button>
-          ) : null}
-          {helper && j.status === "ACCEPTED" ? (
-            <button
-              className="button"
-              disabled={busy}
-              onClick={() => void act("start")}
-            >
-              Start job
-            </button>
-          ) : null}
-          {helper && j.status === "IN_PROGRESS" ? (
-            <button
-              className="button"
-              disabled={busy}
-              onClick={() => void act("deliver")}
-            >
-              Mark delivered
-            </button>
-          ) : null}
-          {owner && j.status === "DELIVERED" ? (
-            <button
-              className="button"
-              disabled={busy}
-              onClick={() => void act("complete")}
-            >
-              Confirm completion
             </button>
           ) : null}
           {participant &&
@@ -159,6 +145,28 @@ export default function JobDetail() {
           ) : null}
         </div>
       </div>
+      {participant && j.helper_id && !["CANCELLED", "COMPLETED"].includes(j.status) ? (
+        <section className="market-panel delivery-panel" aria-label="Delivery progress">
+          <div className="panel-heading"><div><span className="eyebrow">JOB PROGRESS</span><h2>Delivery checklist</h2></div><span className="job-status">{j.status === "DELIVERED" ? "Ready for handoff" : statusLabel(j.status)}</span></div>
+          <div className="delivery-checklist">
+            {steps.map(([key, label], index) => {
+              const checked = index <= progressIndex;
+              const enabled = helper && j.status === "IN_PROGRESS" && index === progressIndex + 1;
+              return <label className={`delivery-step ${checked ? "step-done" : ""}`} key={key}>
+                <input type="checkbox" checked={checked} disabled={!enabled || busy} onChange={() => void act("progress", { step: key })} />
+                <span>{label}</span>
+                {checked ? <small>Updated</small> : null}
+              </label>;
+            })}
+          </div>
+          {helper && j.status === "ACCEPTED" ? <button className="button" disabled={busy} onClick={() => void act("start")}>Start delivery</button> : null}
+          {owner && ["ACCEPTED", "IN_PROGRESS", "DELIVERED"].includes(j.status) ? <p className="subtle-note otp-owner-note">A delivery code was sent to your university email. Share it with the helper only after you receive your order.</p> : null}
+          {helper && j.status === "DELIVERED" ? <form className="handoff-code" onSubmit={(e) => { e.preventDefault(); void act("complete", { otp }); }}>
+            <label>Enter the requester’s 6-digit handoff code<input aria-label="Handoff code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
+            <button className="button" disabled={busy || otp.length !== 6}>{busy ? "Checking…" : "Confirm handoff"}</button>
+          </form> : null}
+        </section>
+      ) : null}
       {participant && j.helper_id ? (
         <Conversation
           id={id!}
