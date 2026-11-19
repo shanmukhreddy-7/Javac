@@ -27,4 +27,6 @@ ENV COOKIE_SECURE=true
 ENV DB_SCHEMA=javac_secure
 ENV SERVER_FORWARD_HEADERS_STRATEGY=framework
 EXPOSE 8080
-ENTRYPOINT ["java","-XX:MaxRAMPercentage=70","-jar","/app/app.jar"]
+# Favor fast JVM startup within the container platform's cold-start deadline. C1 compilation
+# avoids spending startup CPU on higher-tier JIT optimization; database/security startup stays intact.
+ENTRYPOINT ["java","-XX:TieredStopAtLevel=1","-XX:MaxRAMPercentage=70","-jar","/app/app.jar"]

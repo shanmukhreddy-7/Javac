@@ -53,3 +53,7 @@ Validation before release:
 - Browser: signed in as the fictional requester, opened the delivered job, generated its handoff code, and used it from the helper session to complete delivery. No production student records or emails were used by these local checks.
 
 The five runtime migrations remain unchanged; no database migration or repair is needed for this fix. The source comments and annotated SQL study material requested earlier are included in this release.
+
+### Deployment cold-start follow-up
+
+The first production release's public checks succeeded, but its runtime logs exposed a container instance exceeding Vercel's approximately 25-second port-listening deadline. The server was already configured for `PORT`; the failure occurred while the JVM/Spring application was still starting. The container now uses `-XX:TieredStopAtLevel=1` to reduce startup compilation work while retaining all datasource, Flyway, and security initialization. This favors startup latency over peak JIT-optimized throughput. The packaged application starts successfully with the new Java 21 flag, serves public configuration, and still denies anonymous private requests. Production startup and public checks must be checked on the follow-up deployment as well.
