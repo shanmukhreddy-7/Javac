@@ -1,8 +1,13 @@
+/**
+ * Route map for the browser application. Screens load lazily; AuthProvider shares session state.
+ * ProtectedRoute controls signed-in navigation, while Java independently authorizes API access.
+ */
 import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/common/ProtectedRoute";
 import AppLayout from "./components/layout/AppLayout";
+// Load screen bundles on demand; common routing and session state remain available immediately.
 const Landing = lazy(() => import("./pages/Landing"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));

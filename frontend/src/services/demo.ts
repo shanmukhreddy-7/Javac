@@ -1,3 +1,7 @@
+/**
+ * Explicitly opt-in demonstration profile and skill data.
+ * These local examples do not create a verified Java account or persist real marketplace activity.
+ */
 import type { Student, Skill } from "../types";
 export const demoEnabled = import.meta.env.VITE_DEMO_MODE === "true";
 export const demoSkills: Skill[] = [

@@ -1,3 +1,7 @@
+/**
+ * Shared account, profile, skill, and API-error TypeScript contracts.
+ * Retained CampusRequest types support the older direct-request screen.
+ */
 export interface Skill {
   id: number;
   name: string;

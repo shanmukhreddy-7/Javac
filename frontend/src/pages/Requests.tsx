@@ -1,3 +1,7 @@
+/**
+ * Retained earlier direct-request screen.
+ * App currently redirects /requests to /my-jobs; this component is not the active marketplace workflow.
+ */
 import { useCallback, useEffect, useState } from "react";
 import { ArrowUpRight, Inbox, Send, Check, X, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";

@@ -1,3 +1,6 @@
+/**
+ * Password login form that delegates session creation to AuthContext and the Java authentication API.
+ */
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";

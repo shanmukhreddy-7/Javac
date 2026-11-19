@@ -1,3 +1,7 @@
+/**
+ * Wallet balance, ledger, and manual top-up/withdrawal request forms.
+ * Reload the server response after submission instead of assuming a payment or credit succeeded.
+ */
 import { useState } from "react";
 import { api } from "../services/api";
 import { Feedback } from "../components/ui/Feedback";
@@ -13,6 +17,8 @@ interface WalletData {
 export default function Wallet() {
   const {data,error,reload}=useRemote<WalletData>("/api/wallet",20000);
   const [busy,setBusy]=useState(false),[message,setMessage]=useState(""),[actionError,setError]=useState("");
+  // Send an optional private receipt with the UTR; submission stays pending until an admin reviews
+  // it.
   async function topup(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();const form=e.currentTarget;const values=new FormData(form);const payload=new FormData();
     payload.set("amount",String(values.get("amount")));payload.set("utr",String(values.get("utr")));
@@ -21,6 +27,7 @@ export default function Wallet() {
     try{await api("/api/wallet/topups","POST",payload);form.reset();setMessage("Top-up request submitted. Your balance will change after the admin verifies the payment.");await reload();}
     catch(e){setError((e as Error).message);}finally{setBusy(false);}
   }
+  // The server reserves this amount; the form does not initiate a UPI payment.
   async function withdraw(e:React.FormEvent<HTMLFormElement>){
     e.preventDefault();const form=e.currentTarget;const values=new FormData(form);setBusy(true);setError("");setMessage("");
     try{await api("/api/wallet/withdrawals","POST",{amount:Number(values.get("amount")),upiId:String(values.get("upiId"))});form.reset();setMessage("Withdrawal request sent. The amount is reserved while the admin reviews it.");await reload();}

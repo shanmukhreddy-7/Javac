@@ -16,16 +16,31 @@ import org.springframework.transaction.annotation.*;
 /**
  * Codes never leave the email channel or private dev mailbox. Attempt counts commit even on
  * failure.
+ *
+ * Account OTPs are keyed by email AND purpose, so VERIFY and RESET state remain separate. These
+ * are not job-delivery codes. The database persists expiry, attempts, and consumption; local
+ * mode verifies a hash and managed mode checks Neon Auth email ownership.
  */
 @Service
 public class OtpService {
+  // Parameterized JDBC operations on email_otps.
   private final JdbcTemplate db;
+  // Slow local code hashing/matching; managed provider mode does not store its raw code.
   private final PasswordEncoder encoder;
+  // Local/SMTP delivery abstraction used when Neon Auth is not configured.
   private final EmailDelivery mail;
+  // Normalized ownership-provider base URL and the trusted frontend Origin sent to it.
   private final String neon, origin;
+  // JSON request serialization and provider-response parsing.
   private final ObjectMapper json;
+  // Cryptographically secure generator for local six-digit codes.
   private final SecureRandom random = new SecureRandom();
 
+  /**
+   * Injects persistence, hashing, delivery, JSON conversion, and provider settings. Normalizes
+   * the provider base URL and rejects a configured non-HTTPS endpoint before sending any
+   * ownership requests.
+   */
   public OtpService(
       JdbcTemplate db,
       PasswordEncoder encoder,
@@ -43,6 +58,12 @@ public class OtpService {
       throw new IllegalStateException("NEON_AUTH_URL must use HTTPS.");
   }
 
+  /**
+   * Sends JSON to the configured Neon Auth endpoint over HTTPS with timeouts and the frontend
+   * Origin. Parses only the ownership response needed here; it never forwards Java passwords or
+   * adopts provider cookies. Maps provider/network failures to safe API messages and restores
+   * interruption state when interrupted.
+   */
   private com.fasterxml.jackson.databind.JsonNode remote(String path, Map<String, String> body) {
     try {
       var request =
@@ -89,6 +110,13 @@ public class OtpService {
     }
   }
 
+  // Issue in an independent transaction so the persisted cooldown is shared across requests.
+  /**
+   * Runs in REQUIRES_NEW, independently of an outer registration/recovery transaction. Locks an
+   * existing email/purpose record, enforces a 60-second cooldown, delivers a code, and replaces
+   * its state with a five-minute expiry. Local mode saves a hash; managed mode saves
+   * NEON_MANAGED because the provider owns the code.
+   */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void issue(String email, String purpose, String name) {
     var found =
@@ -98,9 +126,17 @@ public class OtpService {
         && Instant.parse(String.valueOf(found.getFirst().get("sent_at")))
             .isAfter(Instant.now().minusSeconds(60))) return;
     String code = String.format(Locale.ROOT, "%06d", random.nextInt(1000000));
+    // Local verification stores a hash; managed verification stores a marker because Neon owns that
+    // code.
     String hash = neon.isBlank() ? encoder.encode(code) : "NEON_MANAGED";
     if (!neon.isBlank()) {
       // Prove mailbox ownership for either a new or an existing Neon identity.
+  /**
+   * Sends JSON to the configured Neon Auth endpoint over HTTPS with timeouts and the frontend
+   * Origin. Parses only the ownership response needed here; it never forwards Java passwords or
+   * adopts provider cookies. Maps provider/network failures to safe API messages and restores
+   * interruption state when interrupted.
+   */
       remote("/email-otp/send-verification-otp", Map.of("email", email, "type", "sign-in"));
     } else
       mail.send(
@@ -117,11 +153,19 @@ public class OtpService {
         Instant.now().toString());
   }
 
+  // Failed checks must still commit their attempt count instead of giving unlimited retries.
+  /**
+   * Runs in its own transaction with noRollbackFor(ApiException.class), so failed guesses
+   * retain their attempt count. Locks the email/purpose row, rejects used/expired/exhausted
+   * state, increments attempts, checks the local hash or provider email ownership, and finally
+   * marks the code used.
+   */
   @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ApiException.class)
   public void verify(String email, String purpose, String code) {
     var rows =
         db.queryForList(
             "SELECT * FROM email_otps WHERE email=? AND purpose=? FOR UPDATE", email, purpose);
+    // The locked row serializes attempts and prevents concurrent requests from bypassing the limit.
     if (rows.isEmpty()) throw new ApiException(400, "Request a new code.");
     var row = rows.getFirst();
     if (Boolean.TRUE.equals(row.get("used"))

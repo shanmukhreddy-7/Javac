@@ -4,13 +4,27 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.*;
 
+/**
+ * Fails production startup when required database, HTTPS, cookie, origin, or mail settings are missing.
+ *
+ * @Profile limits these guards to production. @Value and Environment supply deployment settings;
+ * @PostConstruct checks them after construction. This class validates configuration and contains
+ * no HTTP endpoints.
+ */
 @Configuration
 @Profile("prod")
 public class ProductionSettings {
+  // Resolved HTTPS-only cookie flag required for production.
   private final boolean secure;
+  // Reads active profiles and deployment database/provider properties.
   private final org.springframework.core.env.Environment environment;
+  // Injected public origin, mail, and university-domain settings checked before startup completes.
   private final String frontend, origins, mailHost, domains;
 
+  /**
+   * Constructor injection: Spring supplies the collaborators declared here, so this class can
+   * delegate work without constructing its own repositories or services.
+   */
   public ProductionSettings(
       org.springframework.core.env.Environment environment,
       @Value("${server.servlet.session.cookie.secure}") boolean secure,
@@ -26,6 +40,13 @@ public class ProductionSettings {
     this.domains = domains;
   }
 
+  // Validate only after Spring has injected all configuration values.
+  /**
+   * Runs after dependency injection only in the prod profile. Rejects dev/prod overlap, missing
+   * PostgreSQL, insecure cookies/frontend, wildcard origins, missing university domains, and
+   * absent mail/ownership-provider configuration. A failed guard stops startup before requests
+   * are accepted.
+   */
   @PostConstruct
   void validate() {
     if (java.util.Arrays.asList(environment.getActiveProfiles()).contains("dev")

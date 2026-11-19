@@ -1,3 +1,6 @@
+/**
+ * Validated university-account registration, followed by the email ownership verification screen.
+ */
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";

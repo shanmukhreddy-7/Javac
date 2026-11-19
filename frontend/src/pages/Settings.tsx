@@ -1,3 +1,6 @@
+/**
+ * Account settings and password changes for the signed-in student.
+ */
 import { presentationMode } from "../services/mode";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";

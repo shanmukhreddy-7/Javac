@@ -1,3 +1,7 @@
+/**
+ * Optional split-deployment gateway that forwards same-origin API traffic to JAVA_BACKEND_URL.
+ * The combined container serves /api directly from Java and does not need this forwarding layer.
+ */
 import type { IncomingMessage, ServerResponse } from "node:http";
 export const config = { api: { bodyParser: false, sizeLimit: "4mb" } };
 /** Same-origin gateway only. Every business/auth rule runs in the Java backend. */
@@ -28,6 +32,8 @@ export default async function campus(
     const headers = new Headers();
     const contentType = req.headers["content-type"];
     if (typeof contentType === "string") headers.set("Content-Type", contentType);
+    // Forward only the session/origin/CSRF headers Java needs, instead of blindly copying all
+    // request headers.
     for (const name of ["cookie", "origin", "x-csrf-token"]) {
       const value = req.headers[name];
       if (typeof value === "string") headers.set(name, value);

@@ -1,3 +1,6 @@
+/**
+ * Marketplace and My jobs listings: build search/filter parameters, fetch a page, and link to job details.
+ */
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Feedback } from "../components/ui/Feedback";

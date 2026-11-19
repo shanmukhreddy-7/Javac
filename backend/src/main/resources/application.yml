@@ -1,3 +1,4 @@
+# Shared Spring defaults; environment variables select local or production services.
 spring:
   servlet:
     multipart:
@@ -14,6 +15,7 @@ spring:
     url: ${DB_URL:jdbc:h2:file:./.local-data/javac;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH}
     username: ${DB_USER:sa}
     password: ${DB_PASSWORD:}
+  # Flyway owns schema changes; Hibernate validates mappings instead of creating tables.
   jpa:
     open-in-view: false
     hibernate:
@@ -24,6 +26,7 @@ spring:
           time_zone: UTC
         type:
           preferred_instant_jdbc_type: TIMESTAMP
+  # Maven packages database/migrations into the classpath for versioned startup migrations.
   flyway:
     enabled: true
     schemas: ${DB_SCHEMA:public}
@@ -49,6 +52,8 @@ server:
         secure: ${COOKIE_SECURE:false}
         same-site: ${COOKIE_SAME_SITE:lax}
         max-age: ${SESSION_COOKIE_MAX_AGE:7d}
+# JAVAC-specific settings consumed by services and security configuration.
+# Account ownership checks may use Neon Auth; delivery handoff codes remain Java-managed.
 app:
   approved-domains: ${APP_APPROVED_EMAIL_DOMAINS:srmap.edu.in}
   frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}

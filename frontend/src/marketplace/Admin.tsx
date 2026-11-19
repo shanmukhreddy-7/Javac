@@ -1,3 +1,7 @@
+/**
+ * Account/listing moderation and wallet review screens for administrators.
+ * The Java services enforce administrator access even if someone bypasses the UI role check.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../services/api";
@@ -26,12 +30,14 @@ export default function Admin() {
     jobs: Job[];
     reports: Report[];
   }>("/api/admin");
+  // The wallet queue is separate from account moderation and refreshes periodically.
   const { data: walletQueue, error: walletError, reload: reloadWallet } = useRemote<{
     topups: { id:number; user_id:number; full_name:string; email:string; amount:number; utr:string; proof_type:string|null; status:string; created_at:string }[];
     withdrawals: { id:number; user_id:number; full_name:string; email:string; amount:number; upi_id:string; status:string; payment_utr:string|null; created_at:string }[];
   }>("/api/admin/wallet",30000);
   const [busy, setBusy] = useState(false),
     [actionError, setError] = useState("");
+  // Refresh both queues after a confirmed admin action so displayed decisions come from the server.
   async function act(path: string, method = "POST", body?: unknown) {
     if (!window.confirm("Apply this moderation action?")) return;
     setBusy(true);

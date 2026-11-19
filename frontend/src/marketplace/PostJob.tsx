@@ -1,3 +1,7 @@
+/**
+ * Create a job with route, deadline, reward, and optional Xerox print details.
+ * Ordinary jobs use JSON; Xerox jobs upload a JSON request part and private document as multipart data.
+ */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../services/api";
@@ -23,6 +27,7 @@ export default function PostJob() {
         reward: Number(form.get("reward")),
         pickup: String(form.get("pickup")).trim(),
         destination: String(form.get("destination")).trim(),
+        // Convert the local datetime input to an ISO instant before Java validates the deadline.
         deadline: new Date(String(form.get("deadline"))).toISOString(),
         xeroxMode: category === "Xerox" ? form.get("xeroxMode") : null,
         xeroxCopies: category === "Xerox" ? Number(form.get("xeroxCopies")) : null,
@@ -33,6 +38,7 @@ export default function PostJob() {
         if (!(file instanceof File) || file.size === 0) throw new Error("Choose the file to print.");
         if (file.size > 2 * 1024 * 1024) throw new Error("The file must be 2 MB or smaller.");
         const payload = new FormData();
+        // Spring reads this JSON part as the validated Post DTO; the file is a separate part.
         payload.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
         payload.append("file", file);
         job = await api<Job>("/api/jobs", "POST", payload);

@@ -1,3 +1,5 @@
+// Run Spring Boot through the repository Maven wrapper, selecting the Windows executable when
+// needed.
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const cwd=fileURLToPath(new URL('../backend/',import.meta.url));const windows=process.platform==='win32';

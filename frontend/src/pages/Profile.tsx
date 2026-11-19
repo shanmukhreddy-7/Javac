@@ -1,3 +1,6 @@
+/**
+ * Student profile editor and skill selection backed by authenticated profile endpoints.
+ */
 import { presentationMode } from "../services/mode";
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";

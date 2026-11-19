@@ -26,6 +26,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Covers link-mode account registration, verification, recovery, self-profile editing, CSRF,
+ * and session behavior. Spring boots the real service/repository stack with mocked mail and
+ * test persistence. Class-level @Transactional rolls each ordinary test's database changes
+ * back afterward.
+ */
 @SpringBootTest(classes = JavacApplication.class)
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -40,6 +46,10 @@ class ModuleOneIntegrationTest {
   private final String password = "CampusStrong!2026";
   private AtomicReference<String> delivered;
 
+  /**
+   * Verifies public presentation routing while the wallet API still requires authentication.
+   * Public HTML access must not imply public access to private data.
+   */
   @Test
   void presentationIsPublicWhilePrivateApiRequiresLogin() throws Exception {
     mvc.perform(get("/presentation"))
@@ -48,6 +58,10 @@ class ModuleOneIntegrationTest {
     mvc.perform(get("/api/wallet")).andExpect(status().isUnauthorized());
   }
 
+  /**
+   * Replaces SMTP delivery with a capture of message content. Link-mode helpers read the emitted
+   * token from this isolated test mailbox.
+   */
   @BeforeEach
   void mailbox() {
     delivered = new AtomicReference<>();
@@ -60,6 +74,10 @@ class ModuleOneIntegrationTest {
         .send(anyString(), anyString(), anyString());
   }
 
+  /**
+   * Builds a valid synthetic registration object. Other tests modify one field at a time to
+   * exercise validation and domain/uniqueness rules.
+   */
   private Map<String, Object> registration(String email) {
     Map<String, Object> r = new LinkedHashMap<>();
     r.put("fullName", "Alex Morgan");
@@ -73,6 +91,10 @@ class ModuleOneIntegrationTest {
     return r;
   }
 
+  /**
+   * Serializes a body to JSON and posts it with Spring Security's test CSRF token, isolating
+   * business-rule assertions from missing-token failures.
+   */
   private ResultActions send(String path, Object body) throws Exception {
     return mvc.perform(
         post(path)
@@ -81,11 +103,19 @@ class ModuleOneIntegrationTest {
             .content(json.writeValueAsString(body)));
   }
 
+  /**
+   * Registers a synthetic account and extracts the raw verification token from the captured
+   * link. The production API response never exposes that token.
+   */
   private String create(String email) throws Exception {
     send("/api/auth/register", registration(email)).andExpect(status().isCreated());
     return delivered.get().split("token=")[1];
   }
 
+  /**
+   * Creates an account, consumes its email-verification link, and logs in through the HTTP
+   * endpoint. Returns the resulting session for signed-in test requests.
+   */
   private MockHttpSession verifiedSession(String email) throws Exception {
     String token = create(email);
     send("/api/auth/verify-email", Map.of("token", token)).andExpect(status().isOk());
@@ -97,6 +127,10 @@ class ModuleOneIntegrationTest {
             .getSession();
   }
 
+  /**
+   * Checks successful registration keeps the password encoded, leaves the account
+   * pending/unverified, and omits the secret from the response.
+   */
   @Test
   void validRegistrationStoresHashAndPendingAccountWithoutReturningToken() throws Exception {
     send("/api/auth/register", registration("alex@example.edu"))
@@ -111,6 +145,10 @@ class ModuleOneIntegrationTest {
     assertThat(delivered.get()).contains("/verify-email#token=");
   }
 
+  /**
+   * Attempts duplicate identity registration and expects conflict responses rather than multiple
+   * accounts sharing an email or registration number.
+   */
   @Test
   void duplicateEmailAndRegistrationNumberAreRejected() throws Exception {
     create("alex@example.edu");
@@ -120,12 +158,18 @@ class ModuleOneIntegrationTest {
     send("/api/auth/register", r).andExpect(status().isConflict());
   }
 
+  /**
+   * Rejects syntactically valid email outside the configured university domain list.
+   */
   @Test
   void invalidDomainIsRejected() throws Exception {
     send("/api/auth/register", registration("alex@gmail.com")).andExpect(status().isBadRequest());
     assertThat(users.findByEmail("alex@gmail.com")).isEmpty();
   }
 
+  /**
+   * Submits a weak password and expects field validation failure before account creation.
+   */
   @Test
   void weakPasswordIsRejected() throws Exception {
     var r = registration("alex@example.edu");
@@ -136,6 +180,10 @@ class ModuleOneIntegrationTest {
         .andExpect(jsonPath("$.fields.password").exists());
   }
 
+  /**
+   * Checks that mismatched password confirmation and missing terms consent each prevent
+   * registration.
+   */
   @Test
   void confirmationAndTermsAreRequired() throws Exception {
     var r = registration("alex@example.edu");
@@ -146,6 +194,10 @@ class ModuleOneIntegrationTest {
     send("/api/auth/register", r).andExpect(status().isBadRequest());
   }
 
+  /**
+   * Consumes a valid link, verifies account activation, and submits the same link again to prove
+   * single-use behavior.
+   */
   @Test
   void verificationActivatesAccountAndCannotBeReplayed() throws Exception {
     var token = create("alex@example.edu");
@@ -154,6 +206,10 @@ class ModuleOneIntegrationTest {
     send("/api/auth/verify-email", Map.of("token", token)).andExpect(status().isBadRequest());
   }
 
+  /**
+   * Moves a stored verification expiry into the past and confirms ownership cannot be
+   * established with the expired token.
+   */
   @Test
   void expiredVerificationIsRejected() throws Exception {
     var token = create("alex@example.edu");
@@ -163,6 +219,10 @@ class ModuleOneIntegrationTest {
     send("/api/auth/verify-email", Map.of("token", token)).andExpect(status().isBadRequest());
   }
 
+  /**
+   * Logs in a verified student and reuses the HTTP session on another request, demonstrating
+   * persisted authentication rather than request-local state.
+   */
   @Test
   void correctLoginPersistsSessionAcrossRequests() throws Exception {
     var session = verifiedSession("alex@example.edu");
@@ -172,6 +232,9 @@ class ModuleOneIntegrationTest {
         .andExpect(jsonPath("$.passwordHash").doesNotExist());
   }
 
+  /**
+   * Checks wrong credentials and unverified account state through the real login handler.
+   */
   @Test
   void incorrectAndUnverifiedLoginAreRejected() throws Exception {
     create("alex@example.edu");
@@ -181,6 +244,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isForbidden());
   }
 
+  /**
+   * Separately checks missing authentication and missing CSRF protection on profile writes. A
+   * known account alone does not authorize an unprotected browser POST/PATCH.
+   */
   @Test
   void csrfAndAuthenticationProtectProfileUpdate() throws Exception {
     var update =
@@ -208,6 +275,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isForbidden());
   }
 
+  /**
+   * Edits one student's allowed profile fields and checks another profile stays intact;
+   * attempted identity fields are not accepted as editable account ownership.
+   */
   @Test
   void ownProfileCanBeEditedWithoutChangingAnotherStudent() throws Exception {
     var alex = verifiedSession("alex@example.edu");
@@ -237,6 +308,10 @@ class ModuleOneIntegrationTest {
         .andExpect(jsonPath("$.fullName").value("Alex Morgan"));
   }
 
+  /**
+   * Assigns existing seeded skills and checks unknown IDs fail without creating arbitrary
+   * directory entries.
+   */
   @Test
   void skillsAreAssignedAndUnknownSkillsRejected() throws Exception {
     var session = verifiedSession("alex@example.edu");
@@ -257,6 +332,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isBadRequest());
   }
 
+  /**
+   * Checks resend cooldown behavior and compares generic replies so account existence is not
+   * disclosed.
+   */
   @Test
   void resendHasSixtySecondCooldownAndDoesNotRevealAccountExistence() throws Exception {
     create("alex@example.edu");
@@ -267,6 +346,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isOk());
   }
 
+  /**
+   * Completes recovery using a reset link, rejects reuse, and checks the credential version
+   * revokes the old authenticated session.
+   */
   @Test
   void passwordResetIsSingleUseAndInvalidatesPreviousSession() throws Exception {
     var session = verifiedSession("alex@example.edu");
@@ -282,6 +365,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isOk());
   }
 
+  /**
+   * Requires a correct current password for a signed-in password change and validates the
+   * resulting credentials/session behavior.
+   */
   @Test
   void changePasswordChecksCurrentPassword() throws Exception {
     var session = verifiedSession("alex@example.edu");
@@ -296,6 +383,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isBadRequest());
   }
 
+  /**
+   * Calls the logout endpoint and proves the previous session no longer authorizes private
+   * requests.
+   */
   @Test
   void logoutEndsSession() throws Exception {
     var session = verifiedSession("alex@example.edu");
@@ -303,6 +394,10 @@ class ModuleOneIntegrationTest {
     assertThat(session.isInvalid()).isTrue();
   }
 
+  /**
+   * Uses a fetched CSRF token rather than only the testing helper, then checks login rotates
+   * security state and requires the refreshed token for subsequent protected writes.
+   */
   @Test
   void realCsrfHandshakeAndLoginRotateSecurityToken() throws Exception {
     var token = create("alex@example.edu");
@@ -326,6 +421,10 @@ class ModuleOneIntegrationTest {
         .andExpect(status().isForbidden());
   }
 
+  /**
+   * Checks suspended/inactive account sessions and attempts to change ownership-related profile
+   * fields; neither can bypass server authorization.
+   */
   @Test
   void inactiveAccountsAndProfileOwnershipTamperingAreRejected() throws Exception {
     var session = verifiedSession("alex@example.edu");

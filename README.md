@@ -1,5 +1,7 @@
 # JAVAC — Job and Value Across Campus
 
+For a guided explanation of the folders, Java packages, React screens, and complete request flows, read [Code walkthrough](docs/CODE_WALKTHROUGH.md). Core source files include comments beside the rules they enforce.
+
 A university campus marketplace with a **Java 21 / Spring Boot backend**, **React + TypeScript frontend**, email OTP verification, jobs, messages, notifications, reviews, admin moderation and offline payment records.
 
 ## Run in VS Code
@@ -31,7 +33,7 @@ The administrator is **shanmukha_thiyyagura@srmap.edu.in**, after email verifica
 - University allowlist, password hashing, OTP signup, OTP password recovery, logout and session revocation.
 - Editable student profiles and skills; public student feedback without private email exposure.
 - Post, search and filter jobs by category; pickup/destination, deadline and agreed reward.
-- Job lifecycle: Open → Accepted → In progress → Delivered → Completed. Only the requester confirms completion. Cancellation is available before delivery.
+- Job lifecycle: Open → Accepted → In progress → Delivered → Completed. The helper completes handoff using the requester’s six-digit code after receipt. Cancellation is available before delivery.
 - Atomic acceptance prevents two helpers from claiming the same job.
 - Participant-only messages and notifications, refreshed every five seconds while visible.
 - Earned, awaiting collection and collected totals. Helpers confirm payments received through cash, PhonePe or Paytm outside JAVAC. No money is transferred; collection is self-reported.
@@ -86,6 +88,10 @@ npm run dev:frontend
 ```
 
 On Windows, these npm commands use `mvnw.cmd`; Java 21 must be on PATH.
+
+## Delivery email and handoff fallback
+
+Account ownership codes and delivery notifications use different transports. Neon Auth supplies account verification; arbitrary delivery emails require working SMTP settings (`MAIL_HOST`, port, credentials, and authorized sender). An unavailable SMTP service no longer rolls back job acceptance. When the job reaches **Delivered**, the signed-in requester can select **Generate new handoff code** after receiving the order. This replaces any earlier code, stores only its encoded verifier, and expires after eight hours. Helpers and other students cannot call this owner-only endpoint. Five failed helper checks lock a code; the requester can issue a replacement. No schema migration is required for this fallback.
 
 ## Real OTP email through Neon Auth
 

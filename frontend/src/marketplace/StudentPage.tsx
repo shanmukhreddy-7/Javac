@@ -1,3 +1,6 @@
+/**
+ * Public student profile and completed-job feedback returned by the marketplace API.
+ */
 import { useParams } from "react-router-dom";
 import { Feedback } from "../components/ui/Feedback";
 import { useRemote } from "./useRemote";

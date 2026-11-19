@@ -1,3 +1,6 @@
+/**
+ * Student notifications with polling and owner-checked read updates through the Java API.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../services/api";

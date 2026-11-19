@@ -11,6 +11,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.env.Environment;
 
 /** A properties-file-style environment key must activate local email previews. */
+/**
+ * Boots Spring with an uppercase dotenv-style SPRING_PROFILES_ACTIVE property and an isolated
+ * local database. Ensures the development mail preview implementation is selected without real
+ * external email delivery.
+ */
 @SpringBootTest(
     classes = JavacApplication.class,
     properties = {
@@ -26,6 +31,10 @@ class DevelopmentProfileConfigurationTest {
   @Autowired Environment environment;
   @Autowired EmailDelivery delivery;
 
+  /**
+   * Checks both the resolved dev profile and the actual injected EmailDelivery implementation;
+   * inspecting a property string alone would not prove that local mailbox delivery was selected.
+   */
   @Test
   void dotenvStyleProfileSelectsDevelopmentMailbox() {
     assertThat(environment.getActiveProfiles()).contains("dev");

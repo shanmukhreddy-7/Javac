@@ -1,3 +1,6 @@
+/**
+ * Reusable home link using the original JAVAC logo and an accessible brand label.
+ */
 import { Link } from "react-router-dom";
 export default function Brand({ light = false }: { light?: boolean }) {
   return (

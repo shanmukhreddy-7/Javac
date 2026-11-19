@@ -24,6 +24,12 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.*;
 
+/**
+ * Tests JDBC-backed sessions through fresh HTTP-style requests using a cookie jar, rather than
+ * reusing MockHttpSession directly. Isolated H2 tables exercise the shared-session schema and
+ * authentication serialization. This validates database persistence behavior, not a live Neon
+ * deployment.
+ */
 @SpringBootTest(
     classes = {JavacApplication.class, SharedSessionFlowTest.Sessions.class},
     properties = {
@@ -33,9 +39,17 @@ import org.springframework.test.web.servlet.*;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SharedSessionFlowTest {
+  /**
+   * Enables JDBC session storage specifically for this test context without enabling the full
+   * production profile.
+   */
   @TestConfiguration
   @EnableJdbcHttpSession
   static class Sessions {
+    /**
+     * Test-only cookie configuration retains the production cookie name while allowing the local
+     * MockMvc environment to manage it.
+     */
     @Bean
     CookieSerializer cookieSerializer() {
       var cookie = new DefaultCookieSerializer();
@@ -50,6 +64,11 @@ class SharedSessionFlowTest {
   @MockitoBean EmailDelivery mail;
   final Map<String, String> cookies = new HashMap<>();
 
+  /**
+   * Simulates a small browser: fetches CSRF for writes, sends saved cookies, performs GET/POST,
+   * and captures new Set-Cookie values. Each request recovers authentication from JDBC session
+   * storage.
+   */
   MvcResult request(String path, Object body) throws Exception {
     String token = null;
     if (body != null)
@@ -77,6 +96,10 @@ class SharedSessionFlowTest {
     return result;
   }
 
+  /**
+   * Registers/verifies/logs in a test student, confirms JDBC session rows exist, reads /me using
+   * only cookies, logs out, and confirms a later /me returns 401.
+   */
   @Test
   void postgresStyleSessionTablesPreserveVerifiedLoginAcrossFreshHttpRequests() throws Exception {
     var code = new AtomicReference<String>();

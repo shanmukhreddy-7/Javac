@@ -14,6 +14,11 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 
 /** Exercise real servlet proxy handling: browser POSTs include Origin, unlike basic curl checks. */
+/**
+ * Starts a real embedded servlet server on a random local port to test HTTPS reverse-proxy
+ * origin handling. Forwarded headers model the public host/scheme; the configured
+ * CORS/security chain still decides whether the incoming browser request is allowed.
+ */
 @SpringBootTest(
     classes = JavacApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -34,6 +39,11 @@ class ProxyOriginTest {
         .header("X-Forwarded-Port", "443");
   }
 
+  /**
+   * Fetches a real CSRF token with a cookie-aware HTTP client and submits a same-origin login
+   * behind modeled HTTPS forwarding. Invalid credentials must reach authentication and return
+   * JSON 401, rather than fail incorrectly at CORS.
+   */
   @Test
   void sameOriginBrowserLoginBehindHttpsProxyReachesAuthentication() throws Exception {
     var client =
@@ -65,6 +75,10 @@ class ProxyOriginTest {
         .contains("application/json");
   }
 
+  /**
+   * Submits a request from an unrelated Origin and expects HTTP 403 with the CORS rejection,
+   * proving forwarded host handling does not allow arbitrary origins.
+   */
   @Test
   void unrelatedBrowserOriginIsStillRejected() throws Exception {
     var response =

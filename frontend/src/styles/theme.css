@@ -6,6 +6,7 @@
   font-weight: 100 1000;
   font-display: swap;
 }
+/* Shared JAVAC design tokens used by the landing, authentication, and student screens. */
 :root {
   --blue: #275dce;
   --orange: #f28c52;
@@ -2830,6 +2831,7 @@ select[aria-invalid="true"] {
     font-size: 36px;
   }
 }
+/* Honor the operating-system motion preference across the application. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

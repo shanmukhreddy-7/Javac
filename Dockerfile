@@ -1,3 +1,4 @@
+# Stage 1: compile the TypeScript/React interface into static files.
 FROM node:24-bookworm-slim AS frontend
 WORKDIR /build/frontend
 COPY frontend/package*.json ./
@@ -5,6 +6,7 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
+# Stage 2: package the Java server, Flyway migrations, and compiled interface into one JAR.
 FROM maven:3.9-eclipse-temurin-21 AS backend
 WORKDIR /build
 COPY backend/pom.xml backend/pom.xml
@@ -13,6 +15,7 @@ COPY backend/src/ backend/src/
 COPY --from=frontend /build/frontend/dist/ backend/src/main/resources/static/
 RUN mvn -q -f backend/pom.xml -DskipTests package
 
+# Stage 3: run the packaged application as a non-root user; build tools stay in earlier stages.
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 RUN groupadd --system javac && useradd --system --gid javac javac

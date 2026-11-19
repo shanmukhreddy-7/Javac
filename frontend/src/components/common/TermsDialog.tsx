@@ -1,3 +1,6 @@
+/**
+ * Reusable terms dialog for account forms, keeping consent text outside the main form layout.
+ */
 import { presentationMode } from "../../services/mode";
 import { useEffect, useRef } from "react";
 export default function TermsDialog({ onClose }: { onClose: () => void }) {

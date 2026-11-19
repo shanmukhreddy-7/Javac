@@ -1,3 +1,7 @@
+/**
+ * Completed-job rewards and the helper's self-reported offline payment collection.
+ * These totals are separate from the wallet; recording collection does not move money.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../services/api";
@@ -14,6 +18,7 @@ export default function Earnings() {
   }>("/api/earnings");
   const [busy, setBusy] = useState(false),
     [actionError, setError] = useState("");
+  // Record an offline collection method only; this request does not credit the wallet.
   async function collect(e: React.FormEvent<HTMLFormElement>, id: number) {
     e.preventDefault();
     if (

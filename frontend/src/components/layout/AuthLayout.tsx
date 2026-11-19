@@ -1,3 +1,6 @@
+/**
+ * Shared visual shell for login, registration, verification, and recovery forms.
+ */
 import type { ReactNode } from "react";
 import { ArrowLeft, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";

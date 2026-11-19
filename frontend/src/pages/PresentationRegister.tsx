@@ -1,3 +1,7 @@
+/**
+ * Historical presentation-only registration screen kept for reference.
+ * The current application uses Register with Java-backed email verification.
+ */
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";

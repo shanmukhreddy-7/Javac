@@ -1,3 +1,5 @@
+// Start Java and Vite together; stop the sibling process when either exits or the terminal is
+// interrupted.
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));const windows=process.platform==='win32';let stopped=false;

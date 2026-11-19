@@ -1,3 +1,7 @@
+/**
+ * Job details, ordered manual delivery steps, code-based handoff, messages, and participant reviews.
+ * UI permissions guide the user; MarketplaceService repeats actor and state checks on every mutation.
+ */
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../services/api";
@@ -18,14 +22,19 @@ export default function JobDetail() {
     helper = j?.helper_id === student?.id,
     participant = owner || helper;
   const steps = j ? deliverySteps(j.category) : [];
+  // Derive checked steps from the latest server response rather than advancing them optimistically.
   const progressIndex = j ? steps.findIndex(([key]) => key === j.progress_step) : -1;
   async function act(action: string, details: Record<string, string> = {}) {
     setBusy(true);
     setError("");
     try {
       const result = await api<Job & { otp_error?: string }>(`/api/jobs/${id}/actions`, "POST", { action, ...details });
+      // An incorrect delivery code is returned as otp_error so the server can commit its
+      // failed-attempt counter.
       if (result.otp_error) setError(result.otp_error);
       else if (action === "complete") setSuccess("The job is complete. Thanks for helping on campus!");
+      // Clear the entered code after an attempt; the next reload supplies the authoritative job
+      // status.
       if (action === "complete") setOtp("");
       await reload();
     } catch (e) {
@@ -109,7 +118,7 @@ export default function JobDetail() {
           <div className="xerox-summary">
             <div><span>Print type</span><strong>{j.xerox_mode === "COLOR" ? "Color" : "Black and white"}</strong></div>
             <div><span>Copies</span><strong>{j.copies ?? "—"}</strong></div>
-            {j.original_name ? <a className="button button-outline small" href={`/api/jobs/${j.id}/file`}>Download {j.original_name}</a> : null}
+            {participant && j.original_name ? <a className="button button-outline small" href={`/api/jobs/${j.id}/file`}>Download {j.original_name}</a> : null}
           </div>
         ) : null}
         <p className="subtle-note">
@@ -151,6 +160,8 @@ export default function JobDetail() {
           <div className="delivery-checklist">
             {steps.map(([key, label], index) => {
               const checked = index <= progressIndex;
+              // Expose only the next manual checklist step; Java enforces the same ordering
+              // independently.
               const enabled = helper && j.status === "IN_PROGRESS" && index === progressIndex + 1;
               return <label className={`delivery-step ${checked ? "step-done" : ""}`} key={key}>
                 <input type="checkbox" checked={checked} disabled={!enabled || busy} onChange={() => void act("progress", { step: key })} />
@@ -160,7 +171,8 @@ export default function JobDetail() {
             })}
           </div>
           {helper && j.status === "ACCEPTED" ? <button className="button" disabled={busy} onClick={() => void act("start")}>Start delivery</button> : null}
-          {owner && ["ACCEPTED", "IN_PROGRESS", "DELIVERED"].includes(j.status) ? <p className="subtle-note otp-owner-note">A delivery code was sent to your university email. Share it with the helper only after you receive your order.</p> : null}
+          {owner ? <p className="subtle-note otp-owner-note">Share your handoff code only after you receive your order. If the delivery email is unavailable, generate a new code here when the helper reaches your block.</p> : null}
+          {owner && j.status === "DELIVERED" ? <RequesterHandoff key={`${j.id}-${student?.id}`} id={j.id} /> : null}
           {helper && j.status === "DELIVERED" ? <form className="handoff-code" onSubmit={(e) => { e.preventDefault(); void act("complete", { otp }); }}>
             <label>Enter the requester’s 6-digit handoff code<input aria-label="Handoff code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))} required /></label>
             <button className="button" disabled={busy || otp.length !== 6}>{busy ? "Checking…" : "Confirm handoff"}</button>
@@ -189,6 +201,37 @@ export default function JobDetail() {
     </section>
   );
 }
+// Keep the raw code only in this requester-only component's memory. Navigating away or leaving
+// DELIVERED unmounts it; never put a handoff secret into job lists, chat, or browser storage.
+function RequesterHandoff({ id }: { id: number }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function generate() {
+    setBusy(true);
+    setError("");
+    setCode("");
+    try {
+      const result = await api<{ code: string }>(`/api/jobs/${id}/handoff-code`, "POST");
+      setCode(result.code);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="handoff-code" aria-label="Requester delivery code">
+      <p>Received your order? Generate a new code and share it directly with the helper. This replaces any earlier code and is valid for 8 hours.</p>
+      <Feedback message={error} />
+      <button className="button button-outline" disabled={busy} onClick={() => void generate()}>
+        {busy ? "Generating…" : "Generate new handoff code"}
+      </button>
+      {code ? <p role="status">Your handoff code: <strong>{code}</strong>. Share it only after receipt.</p> : null}
+    </div>
+  );
+}
+// Messages are loaded separately so job details and conversation updates can refresh independently.
 function Conversation({ id, closed }: { id: string; closed: boolean }) {
   const { data, error, reload } = useRemote<Message[]>(
     `/api/jobs/${id}/messages`,
@@ -251,6 +294,7 @@ function Conversation({ id, closed }: { id: string; closed: boolean }) {
     </section>
   );
 }
+// The form appears after completion; Java checks participation and rejects duplicate reviews.
 function Reviews({ id, canReview }: { id: string; canReview: boolean }) {
   const { data, error, reload } = useRemote<Review[]>(
     `/api/jobs/${id}/reviews`,

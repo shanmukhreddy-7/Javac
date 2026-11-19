@@ -1,3 +1,7 @@
+/**
+ * Wait for session restoration, then show nested signed-in routes or redirect to login.
+ * Navigation protection complements, rather than replaces, server-side API authorization.
+ */
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Spinner } from "../ui/Feedback";

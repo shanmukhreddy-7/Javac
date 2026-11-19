@@ -1,3 +1,6 @@
+/**
+ * Skill-directory search and selection, with an explicit save step and optional local demo data.
+ */
 import { useEffect, useState } from "react";
 import { Search, Plus, X, Check } from "lucide-react";
 import type { Skill } from "../../types";

@@ -1,3 +1,7 @@
+/**
+ * Browser-side Zod schemas provide early form feedback.
+ * Java DTO and service checks remain authoritative for requests sent directly to the API.
+ */
 import { z } from "zod";
 export const passwordSchema = z
   .string()

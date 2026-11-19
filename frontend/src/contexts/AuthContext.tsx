@@ -1,3 +1,7 @@
+/**
+ * Shared session and profile state for React screens.
+ * A real session is restored from Java; optional demonstration data is kept separate from verified accounts.
+ */
 import {
   createContext,
   useContext,
@@ -26,6 +30,7 @@ interface AuthValue {
 }
 const AuthContext = createContext<AuthValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
+  // Invalidate earlier asynchronous refreshes after login, logout, or a newer refresh.
   const generation = useRef(0);
   const [student, setStudent] = useState<Student | null>(null);
   const [isDemo, setDemo] = useState(
@@ -57,6 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  // Clear React/demo state after logout or explicit invalidation; the server controls real
+  // sessions.
   const clearSession = () => {
     generation.current++;
     setLoading(false);
@@ -80,6 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!isDemo) await api("/api/auth/logout", "POST");
     clearSession();
   };
+  // Demo state is allowed only by the explicit build flag and never proves university email
+  // ownership.
   const startDemo = () => {
     if (!demoEnabled) return;
     generation.current++;

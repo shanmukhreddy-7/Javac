@@ -1,3 +1,7 @@
+/**
+ * Account email ownership verification and resend countdown.
+ * This five-minute account code is separate from a job's delivery handoff code.
+ */
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";
@@ -14,6 +18,7 @@ export default function VerifyEmail() {
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [cooldown, setCooldown] = useState(state?.email ? 60 : 0);
+  // This countdown guides the UI; the server independently enforces its resend cooldown.
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);

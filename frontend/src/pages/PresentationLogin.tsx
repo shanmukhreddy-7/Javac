@@ -1,3 +1,7 @@
+/**
+ * Historical presentation-only login screen, selected only when presentationMode is enabled.
+ * The current application uses the normal password login screen.
+ */
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";

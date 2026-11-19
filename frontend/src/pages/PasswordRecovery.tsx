@@ -1,3 +1,6 @@
+/**
+ * Password recovery request and reset forms using account email codes or supported token links.
+ */
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import AuthLayout from "../components/layout/AuthLayout";

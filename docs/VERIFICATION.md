@@ -37,3 +37,19 @@ The administrator saved `https://javac-iota.vercel.app` in Neon Auth's trusted d
 - Neon’s production checklist requires a custom email provider for full production use. University sender identity needs university authorization; shared Neon sender is suitable for the classroom setup subject to its limits.
 
 Local test records are named Classroom Boy/Girl and are not real university accounts. They are only verification fixtures in the development database and must not be seeded into production.
+
+## Acceptance email regression — 19 November 2026
+
+The production environment had Neon Auth for account ownership checks but no delivery SMTP configuration. Acceptance sent a separate delivery email inside its transaction, so a mail transport failure rolled the job back to OPEN.
+
+Acceptance now catches delivery `MailException` without exposing secrets or cancelling the accepted job. A requester-only, CSRF-protected POST endpoint generates a replacement code for a visible DELIVERED job, using the existing encoded-verifier/expiry/attempt columns and a private no-store response. The helper cannot retrieve it. The requester shares it after receipt; completion still requires the helper, a delivered job, an unexpired code, and remaining attempts. Delivery SMTP remains optional and needs a configured mail provider for actual inbox delivery; account verification is unchanged.
+
+Validation before release:
+
+- 34 Java tests passed, including unavailable-SMTP acceptance, requester-only code issuance, CSRF denial, hidden/cancelled/completed-state denial, attempt exhaustion/recovery, private Xerox access, ordered Xerox progress, and the existing concurrency/wallet/session tests.
+- 18 frontend tests passed, including acceptance refresh, requester-only controls, failure feedback, and hidden private download links.
+- Complete production build passed (TypeScript/Vite and executable Java JAR).
+- Actual local HTTP flow used an isolated in-memory H2 database and fictional `example.edu` accounts: register, mailbox verification, cookie/CSRF login, post, accept, ordered delivery, requester-only replacement issuance, and helper completion.
+- Browser: signed in as the fictional requester, opened the delivered job, generated its handoff code, and used it from the helper session to complete delivery. No production student records or emails were used by these local checks.
+
+The five runtime migrations remain unchanged; no database migration or repair is needed for this fix. The source comments and annotated SQL study material requested earlier are included in this release.

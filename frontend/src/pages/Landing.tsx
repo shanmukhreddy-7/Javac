@@ -1,3 +1,6 @@
+/**
+ * Public introduction to JAVAC with links into registration and account access.
+ */
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {

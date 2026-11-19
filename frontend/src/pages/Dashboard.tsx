@@ -1,3 +1,6 @@
+/**
+ * Signed-in overview of profile completion, account details, skills, and campus navigation.
+ */
 import { presentationMode } from "../services/mode";
 import { Link } from "react-router-dom";
 import {

@@ -1,3 +1,7 @@
+/**
+ * Typed shapes for Java marketplace responses, plus currency and progress labels.
+ * Snake-case keys mirror JDBC response maps; profile DTOs use their separate camel-case shape.
+ */
 export const categories = [
   "Food pickup",
   "Errands",
@@ -62,6 +66,7 @@ export const money = (n: number) =>
   }).format(n);
 export const statusLabel = (s: string) => s.toLowerCase().replaceAll("_", " ");
 
+// Keep these labels aligned with the category-specific ordered keys enforced by MarketplaceService.
 export const deliverySteps = (category: string) =>
   category === "Xerox"
     ? [

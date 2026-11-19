@@ -1,3 +1,6 @@
+/**
+ * Signed-in page shell with shared campus navigation, account controls, and a nested route outlet.
+ */
 import { useState, useEffect } from "react";
 import { NavLink, Link, Outlet, useNavigate } from "react-router-dom";
 import {

@@ -1,3 +1,6 @@
+/**
+ * Shared error/success announcements and a loading indicator, with appropriate live-region roles.
+ */
 import { AlertCircle, CheckCircle2, LoaderCircle } from "lucide-react";
 export function Feedback({
   message,

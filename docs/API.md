@@ -26,7 +26,9 @@ All endpoints are served by Java. Obtain `/api/auth/csrf` and send its token/hea
 - GET `/api/jobs?q=&category=&scope=all|mine&page=0`: 30 items per page. Browse shows unexpired open jobs; mine includes lifecycle history.
 - POST `/api/jobs`: title, description, category, reward (INR, up to two decimals, 0–10000), pickup, destination, deadline (ISO instant, within 90 days).
 - GET `/api/jobs/{id}`.
-- POST `/api/jobs/{id}/actions`: action = accept/start/deliver/complete/cancel. Ownership and transition rules enforced in Java.
+- POST `/api/jobs/{id}/actions`: action = accept/start/progress/complete/cancel. Progress requires the next category-specific `step`; completion requires a six-digit `otp` from the requester. Ownership and transition rules are enforced in Java.
+- POST `/api/jobs/{id}/handoff-code`: requester-only, visible DELIVERED jobs only. Replaces the existing code and returns `{code, expiresAt}` with `Cache-Control: private, no-store`. Requires session and CSRF; helpers cannot retrieve it.
+- GET `/api/jobs/{id}/file`: private Xerox bytes, participants only. Xerox creation uses multipart JSON `request` plus `file`, with print mode and copy count.
 - GET/POST `/api/jobs/{id}/messages`: participants only, POST body = {body}.
 - GET/POST `/api/jobs/{id}/reviews`: POST rating 1–5, comment; only completed participants may review, once each.
 - POST `/api/jobs/{id}/reports`: reason.
